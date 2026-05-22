@@ -5,7 +5,10 @@ import { MoodEditorScreen } from "./screens/MoodEditorScreen";
 import { PlaybackScreen } from "./screens/PlaybackScreen";
 
 function Router() {
-  const { screen } = useApp();
+  const { screen, isReady } = useApp();
+
+  if (!isReady) return <div className="app-loading" />;
+
   return (
     <main className="app-shell">
       <header className="app-header">
