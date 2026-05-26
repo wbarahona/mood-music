@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { MoodToken, ServiceOption } from "../data/themes";
 import { themeOptions, themeTokens } from "../data/themes";
-import { loadSetup, saveSetup, loadSpotifyTokens, saveSpotifyTokens, type StoredSpotifyTokens } from "../utils/storage";
+import { loadSetup, saveSetup, loadSpotifyTokens, saveSpotifyTokens, clearAll, type StoredSpotifyTokens } from "../utils/storage";
 
 export type Screen = "setup" | "mood" | "playback";
 
@@ -17,6 +18,12 @@ type AppState = {
   activeTokenId: string;
   moodSentence: string;
   isModified: boolean;
+  // YouTube audio stream pre-warming
+  audioStreamUrl: string | null;
+  isStreamLoading: boolean;
+  streamError: string;
+  retryAudioStream: () => void;
+  resetApp: () => void;
   commitCredentials: (service: ServiceOption, clientId: string, clientSecret: string) => void;
   setSpotifyTokens: (tokens: StoredSpotifyTokens | null) => void;
   selectTheme: (themeId: string) => void;
@@ -46,6 +53,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [tokens, setTokens] = useState<MoodToken[]>(initialTokens);
   const [activeTokenId, setActiveTokenId] = useState<string>("");
   const [defaultValues, setDefaultValues] = useState<Record<string, string>>(initialDefaults);
+
+  // YouTube audio stream pre-warming
+  const [audioStreamUrl, setAudioStreamUrl] = useState<string | null>(null);
+  const [isStreamLoading, setIsStreamLoading] = useState(false);
+  const [streamError, setStreamError] = useState("");
+  const [streamRetry, setStreamRetry] = useState(0);
+  const pendingQueryRef = useRef("");
 
   // Load persisted data from the Tauri store (or localStorage fallback) on mount
   useEffect(() => {
@@ -98,6 +112,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Pre-warm the YouTube audio stream whenever the mood or service changes.
+  // Debounced 600 ms so rapid token edits don't fire cascading yt-dlp processes.
+  // Passes the stored API key so Rust can use YouTube Data API for faster search.
+  useEffect(() => {
+    if (!isReady || service !== "youtube") return;
+
+    pendingQueryRef.current = moodSentence;
+    setAudioStreamUrl(null);
+    setIsStreamLoading(true);
+    setStreamError("");
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      invoke<string>("prepare_audio_stream", { query: moodSentence, apiKey: clientId })
+        .then((url) => {
+          if (cancelled || pendingQueryRef.current !== moodSentence) return;
+          setAudioStreamUrl(url);
+          setIsStreamLoading(false);
+        })
+        .catch((err) => {
+          if (cancelled || pendingQueryRef.current !== moodSentence) return;
+          setStreamError(typeof err === "string" ? err : "Failed to load audio.");
+          setIsStreamLoading(false);
+        });
+    }, 600);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [isReady, service, moodSentence, clientId, streamRetry]);
+
+  function retryAudioStream() {
+    setStreamRetry((n) => n + 1);
+  }
+
+  async function resetApp() {
+    await clearAll();
+    setService("spotify");
+    setClientId("");
+    setClientSecret("");
+    setSpotifyTokensState(null);
+    setAudioStreamUrl(null);
+    setIsStreamLoading(false);
+    setStreamError("");
+    setStreamRetry(0);
+    setScreen("setup");
+  }
+
   return (
     <AppContext.Provider
       value={{
@@ -112,6 +172,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activeTokenId,
         moodSentence,
         isModified,
+        audioStreamUrl,
+        isStreamLoading,
+        streamError,
+        retryAudioStream,
+        resetApp,
         commitCredentials,
         setSpotifyTokens: handleSetSpotifyTokens,
         selectTheme,

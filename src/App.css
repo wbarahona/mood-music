@@ -91,6 +91,7 @@ body {
   color: var(--md-sys-color-on-background);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  height: 100%;
 }
 
 button,
@@ -120,7 +121,7 @@ input {
   width: min(920px, 100%);
   margin: 0 auto;
   padding: 24px 24px 28px;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -149,6 +150,29 @@ input {
     0 1px 2px rgba(0, 0, 0, 0.3),
     0 1px 3px 1px rgba(0, 0, 0, 0.15);
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--md-sys-color-outline) var(--md-sys-color-surface-container-high);
+}
+
+.card::-webkit-scrollbar {
+  width: 8px;
+}
+
+.card::-webkit-scrollbar-track {
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 8px;
+  margin: 8px;
+}
+
+.card::-webkit-scrollbar-thumb {
+  background: var(--md-sys-color-outline);
+  border-radius: 8px;
+}
+
+.card::-webkit-scrollbar-thumb:hover {
+  background: var(--md-sys-color-on-surface-variant);
 }
 
 /* ── Typography ──────────────────────────────────────────────────────────── */
@@ -500,6 +524,79 @@ input:focus {
 
 .cog-panel-actions {
   margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reset-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 9999px;
+  color: var(--md-sys-color-error);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+
+.reset-button:hover {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+}
+
+.reset-button .material-symbols-rounded { font-size: 16px; }
+
+/* YouTube optional API key box in setup */
+.yt-api-key-box {
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.yt-api-key-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface);
+  margin: 0 0 12px;
+}
+
+.yt-api-key-label .material-symbols-rounded {
+  font-size: 16px;
+  color: var(--md-sys-color-tertiary);
+}
+
+.yt-instructions-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--md-sys-color-primary);
+  padding: 4px 0;
+  margin-bottom: 8px;
+  transition: color 0.15s ease;
+}
+
+.yt-instructions-toggle:hover {
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.yt-instructions-toggle .material-symbols-rounded {
+  font-size: 18px;
+}
+
+.yt-instructions-body {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
 }
 
 /* ── Theme tiles ─────────────────────────────────────────────────────────── */
@@ -938,6 +1035,15 @@ input:focus {
   justify-content: center;
   gap: 20px;
   padding: 20px 0;
+}
+
+/* Phase hint shown during local intro when YouTube is ready */
+.playback-phase-hint {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  margin: 0;
+  text-align: center;
 }
 
 /* Loading text */

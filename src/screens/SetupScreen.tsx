@@ -9,7 +9,10 @@ import { startSpotifyOAuth } from "../utils/spotifyAuth";
 type Step = 1 | 2 | 3;
 type CredState = "question" | "tutorial" | "form";
 
-const accountTutorials: Record<ServiceOption, { url: string; linkLabel: string; steps: string[] }> = {
+const accountTutorials: Record<
+  ServiceOption,
+  { url: string; linkLabel: string; steps: string[] }
+> = {
   spotify: {
     url: "https://www.spotify.com/signup",
     linkLabel: "Open Spotify Signup",
@@ -17,7 +20,7 @@ const accountTutorials: Record<ServiceOption, { url: string; linkLabel: string; 
       "Click the button below to open the Spotify signup page.",
       "Create a free account — you do not need Spotify Premium to set up the app.",
       "Verify your email address when prompted.",
-      "Come back here and click \"I have an account\" below.",
+      'Come back here and click "I have an account" below.',
     ],
   },
   youtube: {
@@ -27,20 +30,23 @@ const accountTutorials: Record<ServiceOption, { url: string; linkLabel: string; 
       "Click the button below to open the Google account creation page.",
       "Fill in your name, choose a Gmail address, and set a password.",
       "Complete the phone or email verification step.",
-      "Come back here and click \"I have an account\" below.",
+      'Come back here and click "I have an account" below.',
     ],
   },
 };
 
-const credTutorials: Record<ServiceOption, { url: string; linkLabel: string; steps: string[] }> = {
+const credTutorials: Record<
+  ServiceOption,
+  { url: string; linkLabel: string; steps: string[] }
+> = {
   spotify: {
     url: "https://developer.spotify.com/dashboard",
     linkLabel: "Open Spotify Developer Dashboard",
     steps: [
       "Click the button below to open the Spotify Developer Dashboard and log in.",
-      "Click \"Create app\" in the top-right corner.",
-      "Fill in App name: \"Mood Music\". Add Redirect URI: http://localhost:8888/callback.",
-      "Check the Developer Terms of Service box, then click \"Save\".",
+      'Click "Create app" in the top-right corner.',
+      'Fill in App name: "Mood Music". Add Redirect URI: http://localhost:8888/callback.',
+      'Check the Developer Terms of Service box, then click "Save".',
       "On your new app's page, copy the Client ID shown at the top.",
       "No client secret is needed — we use the secure PKCE flow.",
     ],
@@ -50,12 +56,11 @@ const credTutorials: Record<ServiceOption, { url: string; linkLabel: string; ste
     linkLabel: "Open Google Cloud Console",
     steps: [
       "Click the button below to open Google Cloud Console and sign in.",
-      "Click \"Select a project\" → \"New Project\" → name it \"Mood Music\" → Create.",
+      'Click "Select a project" → "New Project" → name it "Mood Music" → Create.',
       "In the left menu, go to: APIs & Services → Library.",
-      "Search \"YouTube Data API v3\", click it, then click \"Enable\".",
+      'Search "YouTube Data API v3", click it, then click "Enable".',
       "Go to: APIs & Services → Credentials → Create Credentials → API key.",
-      "Copy the generated API key — paste it into the \"Client ID\" field below.",
-      "Leave \"Client Secret\" blank. YouTube search only requires the API key.",
+      "Copy the generated API key — paste it into the field above.",
     ],
   },
 };
@@ -65,8 +70,12 @@ function WizardProgress({ step }: { step: Step }) {
     <div className="wizard-progress">
       {([1, 2, 3] as Step[]).map((n, i) => (
         <span key={n} style={{ display: "contents" }}>
-          {i > 0 && <span className={`wizard-line${step > n - 1 ? " done" : ""}`} />}
-          <span className={`wizard-dot${step === n ? " active" : step > n ? " done" : ""}`}>
+          {i > 0 && (
+            <span className={`wizard-line${step > n - 1 ? " done" : ""}`} />
+          )}
+          <span
+            className={`wizard-dot${step === n ? " active" : step > n ? " done" : ""}`}
+          >
             {step > n ? "✓" : n}
           </span>
         </span>
@@ -75,7 +84,15 @@ function WizardProgress({ step }: { step: Step }) {
   );
 }
 
-function TutorialSteps({ steps, url, linkLabel }: { steps: string[]; url: string; linkLabel: string }) {
+function TutorialSteps({
+  steps,
+  url,
+  linkLabel,
+}: {
+  steps: string[];
+  url: string;
+  linkLabel: string;
+}) {
   return (
     <>
       <ol className="tutorial-step-list">
@@ -86,8 +103,13 @@ function TutorialSteps({ steps, url, linkLabel }: { steps: string[]; url: string
           </li>
         ))}
       </ol>
-      <button type="button" className="link-button" onClick={() => openUrl(url)}>
-        <span className="material-symbols-rounded">open_in_new</span> {linkLabel}
+      <button
+        type="button"
+        className="link-button"
+        onClick={() => openUrl(url)}
+      >
+        <span className="material-symbols-rounded">open_in_new</span>{" "}
+        {linkLabel}
       </button>
     </>
   );
@@ -122,9 +144,15 @@ function SpotifyConnectForm({
           />
         </div>
       </div>
-      {connectError && <p className="playback-error" style={{ marginTop: "8px" }}>{connectError}</p>}
+      {connectError && (
+        <p className="playback-error" style={{ marginTop: "8px" }}>
+          {connectError}
+        </p>
+      )}
       {isConnecting && (
-        <p className="oauth-hint">Waiting for Spotify authorization in your browser…</p>
+        <p className="oauth-hint">
+          Waiting for Spotify authorization in your browser…
+        </p>
       )}
       <div className="actions-row">
         <button
@@ -141,7 +169,13 @@ function SpotifyConnectForm({
 }
 
 export function SetupScreen() {
-  const { service: savedService, clientId: savedClientId, commitCredentials, setSpotifyTokens, goToMood } = useApp();
+  const {
+    service: savedService,
+    clientId: savedClientId,
+    commitCredentials,
+    setSpotifyTokens,
+    goToMood,
+  } = useApp();
 
   const [localService, setLocalService] = useState<ServiceOption>(savedService);
   const [localClientId, setLocalClientId] = useState(savedClientId);
@@ -151,6 +185,7 @@ export function SetupScreen() {
   const [credState, setCredState] = useState<CredState>("question");
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectError, setConnectError] = useState("");
+  const [showYtInstructions, setShowYtInstructions] = useState(false);
 
   const serviceName = localService === "spotify" ? "Spotify" : "YouTube Music";
   const accountTutorial = accountTutorials[localService];
@@ -170,7 +205,7 @@ export function SetupScreen() {
 
   function handleStep1Continue() {
     if (localService === "youtube") {
-      commitCredentials("youtube", "", "");
+      commitCredentials("youtube", localClientId.trim(), "");
       goToMood();
     } else {
       setStep(2);
@@ -187,7 +222,11 @@ export function SetupScreen() {
       setSpotifyTokens(tokens);
       goToMood();
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : "Connection failed. Please try again.");
+      setConnectError(
+        err instanceof Error
+          ? err.message
+          : "Connection failed. Please try again.",
+      );
     } finally {
       setIsConnecting(false);
     }
@@ -213,8 +252,9 @@ export function SetupScreen() {
         <>
           <div className="section-title">Welcome to Mood Music</div>
           <p className="section-description">
-            This app builds a mood sentence and uses it to find music that matches how you feel.
-            Choose the streaming service you'd like to connect.
+            This app builds a mood sentence and uses it to find music that
+            matches how you feel. Choose the streaming service you'd like to
+            connect.
           </p>
           <div className="field-group">
             <div className="service-options">
@@ -223,7 +263,11 @@ export function SetupScreen() {
                   key={option.id}
                   type="button"
                   data-service={option.id}
-                  className={option.id === localService ? "service-button active" : "service-button"}
+                  className={
+                    option.id === localService
+                      ? "service-button active"
+                      : "service-button"
+                  }
                   onClick={() => handleServiceChange(option.id)}
                 >
                   {serviceIcons[option.id]}
@@ -234,14 +278,43 @@ export function SetupScreen() {
           </div>
 
           {localService === "youtube" && (
-            <div className="service-inline-note">
-              <span className="service-inline-note-icon">✓</span>
-              <span>
-                YouTube Music uses <strong>yt-dlp</strong> to find and stream audio directly —
-                no account or API key needed. Make sure yt-dlp is installed on your machine:
-                <code className="inline-code">brew install yt-dlp</code>
-              </span>
-            </div>
+            <>
+              <div className="yt-api-key-box">
+                <p className="yt-api-key-label">
+                  <span className="material-symbols-rounded">bolt</span>
+                  Optional: add a YouTube Data API key for faster music search
+                  (~2 s vs ~12 s)
+                </p>
+                <div className="field-group" style={{ marginBottom: 8 }}>
+                  <input
+                    value={localClientId}
+                    onChange={(e) => setLocalClientId(e.currentTarget.value)}
+                    placeholder="AIzaSy… (leave blank to skip)"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="yt-instructions-toggle"
+                  onClick={() => setShowYtInstructions((v) => !v)}
+                >
+                  <span className="material-symbols-rounded">
+                    {showYtInstructions ? "expand_less" : "expand_more"}
+                  </span>
+                  {showYtInstructions
+                    ? "Hide instructions"
+                    : "How do I get an API key?"}
+                </button>
+                {showYtInstructions && (
+                  <div className="yt-instructions-body">
+                    <TutorialSteps
+                      steps={credTutorials.youtube.steps}
+                      url={credTutorials.youtube.url}
+                      linkLabel={credTutorials.youtube.linkLabel}
+                    />
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {localService === "spotify" && (
@@ -255,8 +328,14 @@ export function SetupScreen() {
           )}
 
           <div className="actions-row">
-            <button type="button" className="primary-button" onClick={handleStep1Continue}>
-              {localService === "youtube" ? "Get started — no sign-in needed" : `Continue with ${serviceName}`}
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleStep1Continue}
+            >
+              {localService === "youtube"
+                ? "Get started — no sign-in needed"
+                : `Continue with ${serviceName}`}
             </button>
           </div>
         </>
@@ -265,18 +344,34 @@ export function SetupScreen() {
       {/* ── Step 2: Account check ── */}
       {step === 2 && (
         <>
-          <button type="button" className="back-link" onClick={goBack}><span className="material-symbols-rounded">arrow_back</span> Back</button>
-          <div className="section-title">Do you have a {serviceName} account?</div>
+          <button type="button" className="back-link" onClick={goBack}>
+            <span className="material-symbols-rounded">arrow_back</span> Back
+          </button>
+          <div className="section-title">
+            Do you have a {serviceName} account?
+          </div>
 
           {hasAccount === null && (
             <div className="answer-buttons">
-              <button type="button" className="answer-button" onClick={() => handleHasAccount(true)}>
+              <button
+                type="button"
+                className="answer-button"
+                onClick={() => handleHasAccount(true)}
+              >
                 <span className="answer-title">Yes, I have one</span>
-                <span className="answer-desc">Take me straight to the setup steps</span>
+                <span className="answer-desc">
+                  Take me straight to the setup steps
+                </span>
               </button>
-              <button type="button" className="answer-button" onClick={() => handleHasAccount(false)}>
+              <button
+                type="button"
+                className="answer-button"
+                onClick={() => handleHasAccount(false)}
+              >
                 <span className="answer-title">No, I need to create one</span>
-                <span className="answer-desc">Show me how to sign up for free</span>
+                <span className="answer-desc">
+                  Show me how to sign up for free
+                </span>
               </button>
             </div>
           )}
@@ -291,7 +386,11 @@ export function SetupScreen() {
                 url={accountTutorial.url}
                 linkLabel={accountTutorial.linkLabel}
               />
-              <button type="button" className="primary-button" onClick={() => setStep(3)}>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => setStep(3)}
+              >
                 I have an account — continue
               </button>
             </>
@@ -302,22 +401,38 @@ export function SetupScreen() {
       {/* ── Step 3: Developer credentials + OAuth ── */}
       {step === 3 && (
         <>
-          <button type="button" className="back-link" onClick={goBack}><span className="material-symbols-rounded">arrow_back</span> Back</button>
-          <div className="section-title">Do you have {serviceName} developer credentials?</div>
+          <button type="button" className="back-link" onClick={goBack}>
+            <span className="material-symbols-rounded">arrow_back</span> Back
+          </button>
+          <div className="section-title">
+            Do you have {serviceName} developer credentials?
+          </div>
           <p className="section-description">
-            To search for music the app needs a Client ID from {serviceName}'s developer portal.
-            This is free and takes about 5 minutes.
+            To search for music the app needs a Client ID from {serviceName}'s
+            developer portal. This is free and takes about 5 minutes.
           </p>
 
           {credState === "question" && (
             <div className="answer-buttons">
-              <button type="button" className="answer-button" onClick={() => setCredState("form")}>
+              <button
+                type="button"
+                className="answer-button"
+                onClick={() => setCredState("form")}
+              >
                 <span className="answer-title">Yes, I have a Client ID</span>
-                <span className="answer-desc">Take me to the connect screen</span>
+                <span className="answer-desc">
+                  Take me to the connect screen
+                </span>
               </button>
-              <button type="button" className="answer-button" onClick={() => setCredState("tutorial")}>
+              <button
+                type="button"
+                className="answer-button"
+                onClick={() => setCredState("tutorial")}
+              >
                 <span className="answer-title">No, I need to get one</span>
-                <span className="answer-desc">Show me how to get it for free</span>
+                <span className="answer-desc">
+                  Show me how to get it for free
+                </span>
               </button>
             </div>
           )}
@@ -325,7 +440,8 @@ export function SetupScreen() {
           {credState === "tutorial" && (
             <>
               <p className="tutorial-intro">
-                Follow these steps to create your free {serviceName} developer credentials:
+                Follow these steps to create your free {serviceName} developer
+                credentials:
               </p>
               <TutorialSteps
                 steps={credTutorial.steps}

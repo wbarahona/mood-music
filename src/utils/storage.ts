@@ -80,3 +80,12 @@ export async function saveSpotifyTokens(tokens: StoredSpotifyTokens): Promise<vo
     localStorage.setItem("mood-music-spotify-tokens", JSON.stringify(tokens));
   } catch {}
 }
+
+export async function clearAll(): Promise<void> {
+  const store = await getStore();
+  try {
+    if (store) { await store.delete("setup"); await store.delete("spotifyTokens"); return; }
+    localStorage.removeItem("mood-music-setup");
+    localStorage.removeItem("mood-music-spotify-tokens");
+  } catch {}
+}

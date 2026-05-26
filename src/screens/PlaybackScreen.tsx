@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { useApp } from "../context/AppContext";
+import { sharedAudio, audioPlayerState } from "../utils/audioPlayer";
 import { refreshSpotifyTokens } from "../utils/spotifyAuth";
 import { openUrl } from "../utils/openUrl";
 import { moodToUrl } from "../utils/moodToUrl";
 import { applyM3ThemeFromImage, applyM3Theme } from "../utils/theme";
 
-type AudioState = "loading" | "ready" | "playing" | "error";
 type SpotifyState = "loading" | "ready" | "playing" | "paused" | "error";
 
 export function PlaybackScreen() {
@@ -17,6 +17,9 @@ export function PlaybackScreen() {
     spotifyTokens,
     setSpotifyTokens,
     goToMood,
+    audioStreamUrl,
+    streamError,
+    retryAudioStream,
   } = useApp();
 
   const isYoutube = service === "youtube";
@@ -31,7 +34,6 @@ export function PlaybackScreen() {
     moodSentence + " music mood aesthetic cinematic",
   )}?width=900&height=680&nologo=true`;
 
-  // Fetch via Rust backend — bypasses the 403 that browser Origin header triggers
   useEffect(() => {
     setBgLoaded(false);
     setBgFailed(false);
@@ -56,7 +58,6 @@ export function PlaybackScreen() {
 
   function handleBgLoad() {
     setBgLoaded(true);
-    // data URLs are same-origin — canvas.getImageData works without CORS issues
     if (bgImgRef.current) applyM3ThemeFromImage(bgImgRef.current);
   }
 
@@ -65,50 +66,209 @@ export function PlaybackScreen() {
     applyM3Theme();
   }
 
-  // ── YouTube state ──────────────────────────────────────────────────────────
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [audioState, setAudioState] = useState<AudioState>(
-    isYoutube ? "loading" : "ready",
-  );
-  const [audioError, setAudioError] = useState("");
-  const [retryCount, setRetryCount] = useState(0);
+  // ── YouTube audio state ────────────────────────────────────────────────────
+  //
+  // Uses sharedAudio (module-level singleton) so playback survives
+  // PlaybackScreen unmounting when the user navigates to the mood editor.
+  //
+  // Phase machine:
+  //   "local"   → playing a bundled MP3 immediately on mount
+  //   "youtube" → playing the yt-dlp stream
+  //
+  // Pre-fetch starts the moment YouTube begins playing and at T-20s as a
+  // safety net. On track end the pre-fetched URL plays immediately; if not
+  // ready yet we bridge with a local track and switch the moment it arrives.
 
+  const [audioPlaying, setAudioPlaying] = useState(() => !sharedAudio.paused);
+  const [playError, setPlayError] = useState("");
+  const [_, setPhase] = useState<"local" | "youtube">(
+    () => audioPlayerState.phase,
+  );
+
+  const phaseRef = useRef<"local" | "youtube">(audioPlayerState.phase);
+  const audioStreamUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    audioStreamUrlRef.current = audioStreamUrl;
+  }, [audioStreamUrl]);
+
+  const nextStreamUrlRef = useRef<string | null>(audioPlayerState.nextUrl);
+  const prefetchingRef = useRef(false);
+  const seedRef = useRef(0);
+
+  const waitingForFirstRef = useRef(false);
+  const waitingForNextRef = useRef(false);
+
+  const [localSrc] = useState(
+    () => `/defo-music/defo-music-${Math.floor(Math.random() * 4) + 1}.mp3`,
+  );
+
+  const TRACK_VARIATIONS = [
+    "mix",
+    "playlist",
+    "session",
+    "extended",
+    "deep cuts",
+    "vibes",
+  ];
+
+  // Stable handler refs — listeners on sharedAudio always call the latest closure
+  const handleEndedRef = useRef<() => void>(() => {});
+  const handleTimeupdateRef = useRef<() => void>(() => {});
+  const handleErrorRef = useRef<() => void>(() => {});
+
+  // Register / deregister listeners on the shared audio element
   useEffect(() => {
     if (!isYoutube) return;
-    setAudioState("loading");
-    setAudioError("");
-    invoke<string>("get_audio_url", { query: moodSentence })
-      .then((filePath) => {
-        const audio = audioRef.current;
-        if (audio) {
-          audio.src = convertFileSrc(filePath);
-          audio.load();
-        }
-        setAudioState("ready");
-      })
-      .catch((err) => {
-        setAudioError(typeof err === "string" ? err : "Failed to load audio.");
-        setAudioState("error");
-      });
+    const onEnded = () => handleEndedRef.current();
+    const onTimeupdate = () => handleTimeupdateRef.current();
+    const onError = () => handleErrorRef.current();
+    sharedAudio.addEventListener("ended", onEnded);
+    sharedAudio.addEventListener("timeupdate", onTimeupdate);
+    sharedAudio.addEventListener("error", onError);
     return () => {
-      audioRef.current?.pause();
+      sharedAudio.removeEventListener("ended", onEnded);
+      sharedAudio.removeEventListener("timeupdate", onTimeupdate);
+      sharedAudio.removeEventListener("error", onError);
     };
-  }, [moodSentence, isYoutube, retryCount]);
+  }, [isYoutube]);
 
-  function toggleYoutubePlay() {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (audioState === "playing") {
-      audio.pause();
-      setAudioState("ready");
-    } else {
-      setAudioState("playing");
-      audio.play().catch(() => {
-        setAudioError(
-          "Playback failed — the stream may have expired. Go back and try again.",
-        );
-        setAudioState("error");
+  // On mount: resume if same mood is already playing; else start fresh
+  useEffect(() => {
+    if (!isYoutube) return;
+    if (audioPlayerState.playingForMood === moodSentence && sharedAudio.src) {
+      setAudioPlaying(!sharedAudio.paused);
+      setPhase(audioPlayerState.phase);
+      phaseRef.current = audioPlayerState.phase;
+      nextStreamUrlRef.current = audioPlayerState.nextUrl;
+      return;
+    }
+    audioPlayerState.playingForMood = moodSentence;
+    audioPlayerState.phase = "local";
+    audioPlayerState.nextUrl = null;
+    phaseRef.current = "local";
+    setPhase("local");
+    nextStreamUrlRef.current = null;
+    seedRef.current = 0;
+    prefetchingRef.current = false;
+    waitingForFirstRef.current = false;
+    waitingForNextRef.current = false;
+    playLocalTrack(localSrc);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isYoutube, moodSentence]);
+
+  // When the initial YouTube URL arrives, hand off if local already ended
+  useEffect(() => {
+    if (!isYoutube || !audioStreamUrl) return;
+    if (waitingForFirstRef.current) switchToYoutube(audioStreamUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isYoutube, audioStreamUrl]);
+
+  function prefetchNextTrack() {
+    if (prefetchingRef.current || nextStreamUrlRef.current) return;
+    prefetchingRef.current = true;
+    seedRef.current += 1;
+    const variation =
+      TRACK_VARIATIONS[(seedRef.current - 1) % TRACK_VARIATIONS.length];
+    invoke<string>("prepare_audio_stream", {
+      query: `${moodSentence} ${variation}`,
+      apiKey: clientId,
+    })
+      .then((url) => {
+        if (waitingForNextRef.current) {
+          waitingForNextRef.current = false;
+          switchToYoutube(url);
+        } else {
+          nextStreamUrlRef.current = url;
+          audioPlayerState.nextUrl = url;
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        prefetchingRef.current = false;
       });
+  }
+
+  function switchToYoutube(url: string) {
+    phaseRef.current = "youtube";
+    audioPlayerState.phase = "youtube";
+    setPhase("youtube");
+    waitingForFirstRef.current = false;
+    setPlayError("");
+    sharedAudio.src = url;
+    sharedAudio.load();
+    sharedAudio
+      .play()
+      .then(() => setAudioPlaying(true))
+      .catch(() => setAudioPlaying(false));
+    prefetchNextTrack();
+  }
+
+  function playLocalTrack(src?: string) {
+    phaseRef.current = "local";
+    audioPlayerState.phase = "local";
+    setPhase("local");
+    sharedAudio.src =
+      src ?? `/defo-music/defo-music-${Math.floor(Math.random() * 4) + 1}.mp3`;
+    sharedAudio.load();
+    sharedAudio
+      .play()
+      .then(() => setAudioPlaying(true))
+      .catch(() => setAudioPlaying(false));
+  }
+
+  function handleTimeUpdate() {
+    if (
+      phaseRef.current !== "youtube" ||
+      !sharedAudio.duration ||
+      !isFinite(sharedAudio.duration)
+    )
+      return;
+    if (sharedAudio.duration - sharedAudio.currentTime <= 20)
+      prefetchNextTrack();
+  }
+  handleTimeupdateRef.current = handleTimeUpdate;
+
+  function handleEnded() {
+    setAudioPlaying(false);
+    if (phaseRef.current === "local") {
+      if (audioStreamUrlRef.current) {
+        switchToYoutube(audioStreamUrlRef.current);
+      } else {
+        waitingForFirstRef.current = true;
+        playLocalTrack();
+      }
+    } else {
+      if (nextStreamUrlRef.current) {
+        const url = nextStreamUrlRef.current;
+        nextStreamUrlRef.current = null;
+        audioPlayerState.nextUrl = null;
+        switchToYoutube(url);
+      } else {
+        waitingForNextRef.current = true;
+        playLocalTrack();
+      }
+    }
+  }
+  handleEndedRef.current = handleEnded;
+
+  function handleAudioError() {
+    setPlayError("Stream error — please try again.");
+    setAudioPlaying(false);
+  }
+  handleErrorRef.current = handleAudioError;
+
+  function togglePlay() {
+    if (audioPlaying) {
+      sharedAudio.pause();
+      setAudioPlaying(false);
+    } else {
+      sharedAudio
+        .play()
+        .then(() => setAudioPlaying(true))
+        .catch(() => {
+          setPlayError("Playback failed — the stream may have expired.");
+          setAudioPlaying(false);
+        });
     }
   }
 
@@ -278,22 +438,15 @@ export function PlaybackScreen() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  const isPlaying = isYoutube
-    ? audioState === "playing"
-    : spotifyState === "playing";
+  const isPlaying = isYoutube ? audioPlaying : spotifyState === "playing";
+  const eyebrowText = bgLoaded || bgFailed ? "Mood" : "Generating image…";
 
-  const eyebrowText = bgFailed
-    ? "Mood"
-    : bgLoaded
-      ? "Mood"
-      : "Generating image…";
+  const youtubeError = streamError || playError;
 
   return (
     <section className="playback-screen">
-      {/* Animated gradient shown while AI image loads */}
       <div className="playback-loading-bg" />
 
-      {/* AI-generated backdrop fades in over the gradient */}
       {bgSrc && (
         <img
           ref={bgImgRef}
@@ -318,48 +471,31 @@ export function PlaybackScreen() {
         <div className="playback-center">
           {isYoutube ? (
             <>
-              <audio
-                ref={audioRef}
-                onEnded={() => setAudioState("ready")}
-                onError={() => {
-                  setAudioError(
-                    "Playback error — the stream may have expired. Go back and try again.",
-                  );
-                  setAudioState("error");
-                }}
-              />
-              {audioState === "loading" && (
-                <p className="playback-status">
-                  Downloading audio for your mood…
-                </p>
-              )}
-              {audioState === "error" && (
+              {youtubeError && (
                 <div className="playback-error-block">
-                  <p className="playback-error">{audioError}</p>
+                  <p className="playback-error">{youtubeError}</p>
                   <button
                     type="button"
                     className="secondary-button"
                     onClick={() => {
-                      setAudioState("loading");
-                      setRetryCount((n) => n + 1);
+                      setPlayError("");
+                      retryAudioStream();
                     }}
                   >
                     Try again
                   </button>
                 </div>
               )}
-              {(audioState === "ready" || audioState === "playing") && (
-                <button
-                  type="button"
-                  className={`play-fab${isPlaying ? " playing" : ""}`}
-                  onClick={toggleYoutubePlay}
-                  aria-label={isPlaying ? "Pause" : "Play"}
-                >
-                  <span className="material-symbols-rounded play-fab-icon">
-                    {isPlaying ? "pause" : "play_arrow"}
-                  </span>
-                </button>
-              )}
+              <button
+                type="button"
+                className={`play-fab${isPlaying ? " playing" : ""}`}
+                onClick={togglePlay}
+                aria-label={isPlaying ? "Pause" : "Play"}
+              >
+                <span className="material-symbols-rounded play-fab-icon">
+                  {isPlaying ? "pause" : "play_arrow"}
+                </span>
+              </button>
             </>
           ) : (
             <>

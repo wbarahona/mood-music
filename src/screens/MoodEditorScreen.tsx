@@ -6,7 +6,7 @@ import { startSpotifyOAuth } from "../utils/spotifyAuth";
 import { serviceIcons } from "../utils/serviceIcons";
 
 function CogPanel({ onClose }: { onClose: () => void }) {
-  const { service, clientId, commitCredentials, setSpotifyTokens } = useApp();
+  const { service, clientId, commitCredentials, setSpotifyTokens, resetApp } = useApp();
 
   const [localService, setLocalService] = useState<ServiceOption>(service);
   const [localClientId, setLocalClientId] = useState(clientId);
@@ -118,6 +118,14 @@ function CogPanel({ onClose }: { onClose: () => void }) {
               ? "Connecting…"
               : "Connect with Spotify"
             : "Save changes"}
+        </button>
+        <button
+          type="button"
+          className="reset-button"
+          onClick={() => { resetApp(); onClose(); }}
+        >
+          <span className="material-symbols-rounded">restart_alt</span>
+          Start over
         </button>
       </div>
     </div>
