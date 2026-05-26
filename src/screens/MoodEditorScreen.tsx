@@ -2,19 +2,38 @@ import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import type { ServiceOption } from "../data/themes";
 import { themeOptions, services } from "../data/themes";
+import { startSpotifyOAuth } from "../utils/spotifyAuth";
 
 function CogPanel({ onClose }: { onClose: () => void }) {
-  const { service, clientId, clientSecret, commitCredentials } = useApp();
+  const { service, clientId, commitCredentials, setSpotifyTokens } = useApp();
 
   const [localService, setLocalService] = useState<ServiceOption>(service);
   const [localClientId, setLocalClientId] = useState(clientId);
-  const [localSecret, setLocalSecret] = useState(clientSecret);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectError, setConnectError] = useState("");
 
   const isValid = localService === "youtube" || localClientId.trim().length > 0;
 
-  function handleSave() {
-    commitCredentials(localService, localClientId, localSecret);
-    onClose();
+  async function handleSave() {
+    if (localService === "youtube") {
+      commitCredentials("youtube", "", "");
+      onClose();
+      return;
+    }
+
+    // Spotify: always re-run OAuth so the token is fresh for the current Client ID
+    setIsConnecting(true);
+    setConnectError("");
+    try {
+      const tokens = await startSpotifyOAuth(localClientId.trim());
+      commitCredentials("spotify", localClientId.trim(), "");
+      setSpotifyTokens(tokens);
+      onClose();
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : "Connection failed. Please try again.");
+    } finally {
+      setIsConnecting(false);
+    }
   }
 
   return (
@@ -32,7 +51,7 @@ function CogPanel({ onClose }: { onClose: () => void }) {
             key={s.id}
             type="button"
             className={localService === s.id ? "service-button active" : "service-button"}
-            onClick={() => setLocalService(s.id)}
+            onClick={() => { setLocalService(s.id); setConnectError(""); }}
           >
             {s.label}
           </button>
@@ -54,23 +73,25 @@ function CogPanel({ onClose }: { onClose: () => void }) {
               value={localClientId}
               onChange={(e) => setLocalClientId(e.currentTarget.value)}
               placeholder="Paste client ID"
-            />
-          </div>
-          <div className="field-group">
-            <label>Client secret</label>
-            <input
-              type="password"
-              value={localSecret}
-              onChange={(e) => setLocalSecret(e.currentTarget.value)}
-              placeholder="Paste client secret"
+              disabled={isConnecting}
             />
           </div>
         </div>
       )}
 
+      {connectError && <p className="playback-error" style={{ marginTop: "8px" }}>{connectError}</p>}
+      {isConnecting && <p className="oauth-hint">Waiting for Spotify in your browser…</p>}
+
       <div className="cog-panel-actions">
-        <button type="button" className="primary-button" onClick={handleSave} disabled={!isValid}>
-          Save changes
+        <button
+          type="button"
+          className="primary-button"
+          onClick={handleSave}
+          disabled={!isValid || isConnecting}
+        >
+          {localService === "spotify"
+            ? (isConnecting ? "Connecting…" : "Connect with Spotify")
+            : "Save changes"}
         </button>
       </div>
     </div>

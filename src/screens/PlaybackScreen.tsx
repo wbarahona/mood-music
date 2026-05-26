@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useApp } from "../context/AppContext";
 import { refreshSpotifyTokens } from "../utils/spotifyAuth";
+import { openUrl } from "../utils/openUrl";
+import { moodToUrl } from "../utils/moodToUrl";
 
 type AudioState = "loading" | "ready" | "playing" | "error";
 type SpotifyState = "loading" | "ready" | "playing" | "paused" | "error";
@@ -22,9 +24,9 @@ export function PlaybackScreen() {
     setAudioState("loading");
     setAudioError("");
     invoke<string>("get_audio_url", { query: moodSentence })
-      .then((url) => {
+      .then((filePath) => {
         const audio = audioRef.current;
-        if (audio) { audio.src = url; audio.load(); }
+        if (audio) { audio.src = convertFileSrc(filePath); audio.load(); }
         setAudioState("ready");
       })
       .catch((err) => {
@@ -57,6 +59,7 @@ export function PlaybackScreen() {
 
   const [spotifyState, setSpotifyState] = useState<SpotifyState>("loading");
   const [spotifyError, setSpotifyError] = useState("");
+  const [isPremiumError, setIsPremiumError] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<{ name: string; artist: string } | null>(null);
 
@@ -111,11 +114,12 @@ export function PlaybackScreen() {
           if (!cancelled) { setSpotifyError(`Auth error: ${message}. Try reconnecting Spotify.`); setSpotifyState("error"); }
         });
         player.addListener("account_error", ({ message }) => {
-          const isPremium = /premium/i.test(message);
+          const premium = /premium/i.test(message);
           if (!cancelled) {
-            setSpotifyError(isPremium
+            setSpotifyError(premium
               ? "Spotify Premium is required for in-app playback."
               : `Account error: ${message}`);
+            setIsPremiumError(premium);
             setSpotifyState("error");
           }
         });
@@ -231,7 +235,7 @@ export function PlaybackScreen() {
               }}
             />
             {audioState === "loading" && (
-              <p className="playback-status">Finding music for your mood…</p>
+              <p className="playback-status">Downloading audio for your mood…</p>
             )}
             {audioState === "error" && (
               <div className="playback-error-block">
@@ -265,6 +269,15 @@ export function PlaybackScreen() {
             {spotifyState === "error" && (
               <div className="playback-error-block">
                 <p className="playback-error">{spotifyError}</p>
+                {isPremiumError && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => openUrl(moodToUrl(moodSentence, "spotify"))}
+                  >
+                    Open in Spotify instead
+                  </button>
+                )}
               </div>
             )}
 

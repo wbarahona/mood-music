@@ -1,6 +1,7 @@
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_shell::ShellExt;
 
 // Starts a one-shot TCP listener on port 8888 for the Spotify OAuth callback.
 // Emits "spotify-callback" with { code, state } on success or { error } on failure.
@@ -120,51 +121,67 @@ async fn refresh_spotify_token(
     resp.json::<serde_json::Value>().await.map_err(|e| e.to_string())
 }
 
-// Calls yt-dlp on the host system, searches YouTube for the mood query,
-// and returns the best audio stream URL for the HTML5 audio element.
+// Downloads audio via the bundled yt-dlp sidecar to a temp file and returns the local path.
+// The WebView plays the local file via Tauri's asset protocol, which avoids the CORS /
+// header-mismatch issues that arise when pointing an <audio> element at a signed CDN URL.
 #[tauri::command]
-async fn get_audio_url(query: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let output = std::process::Command::new("yt-dlp")
-            .args([
-                "--get-url",
-                "-f", "bestaudio[ext=m4a]/bestaudio/best",
-                "--no-playlist",
-                "--quiet",
-                &format!("ytsearch1:{}", query),
-            ])
-            .output()
-            .map_err(|e| match e.kind() {
-                std::io::ErrorKind::NotFound =>
-                    "yt-dlp is not installed. Run: brew install yt-dlp".to_string(),
-                _ => format!("Failed to run yt-dlp: {}", e),
-            })?;
-
-        if !output.status.success() {
-            return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+async fn get_audio_url(app: AppHandle, query: String) -> Result<String, String> {
+    // Clean up any leftover files from a previous search
+    if let Ok(entries) = std::fs::read_dir("/tmp") {
+        for entry in entries.flatten() {
+            if entry.file_name().to_string_lossy().starts_with("mood-music-") {
+                let _ = std::fs::remove_file(entry.path());
+            }
         }
+    }
 
-        // Take the first URL only — bestaudio can return multiple lines in some formats
-        let url = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .next()
-            .unwrap_or("")
-            .trim()
-            .to_string();
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let output_template = format!("/tmp/mood-music-{}.%(ext)s", ts);
 
-        if url.is_empty() {
-            return Err("No audio stream found for this mood.".to_string());
+    let output = app
+        .shell()
+        .sidecar("yt-dlp")
+        .map_err(|e| e.to_string())?
+        .args([
+            // Prefer m4a ≤128 kbps for fast download; fall back to webm then any best audio
+            "-f", "bestaudio[ext=m4a][abr<=128]/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
+            "--no-playlist",
+            "--quiet",
+            "-o", &output_template,
+            &format!("ytsearch1:{}", query),
+        ])
+        .output()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if err.is_empty() {
+            "No audio found for this mood.".into()
+        } else {
+            err
+        });
+    }
+
+    // Find the file yt-dlp wrote (%(ext)s is replaced with the actual extension)
+    let base = format!("/tmp/mood-music-{}", ts);
+    for ext in ["m4a", "webm", "ogg", "opus", "mp4", "mkv"] {
+        let path = format!("{}.{}", base, ext);
+        if std::path::Path::new(&path).exists() {
+            return Ok(path);
         }
+    }
 
-        Ok(url)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    Err("Downloaded file not found — please try again.".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![

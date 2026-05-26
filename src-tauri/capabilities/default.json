@@ -5,6 +5,12 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "store:default",
+    "shell:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "yt-dlp", "sidecar": true }]
+    }
   ]
 }
