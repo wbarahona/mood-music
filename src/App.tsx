@@ -11,10 +11,6 @@ function Router() {
 
   return (
     <main className="app-shell">
-      <header className="app-header">
-        <h1>Mood Music</h1>
-        <p>Build a mood sentence, connect a service, then play or edit it again.</p>
-      </header>
       {screen === "setup" && <SetupScreen />}
       {screen === "mood" && <MoodEditorScreen />}
       {screen === "playback" && <PlaybackScreen />}

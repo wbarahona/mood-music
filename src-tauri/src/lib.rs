@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose, Engine as _};
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
 use tauri::{AppHandle, Emitter};
@@ -127,7 +128,7 @@ async fn refresh_spotify_token(
 #[tauri::command]
 async fn get_audio_url(app: AppHandle, query: String) -> Result<String, String> {
     // Clean up any leftover files from a previous search
-    if let Ok(entries) = std::fs::read_dir("/tmp") {
+    if let Ok(entries) = std::fs::read_dir("/private/tmp") {
         for entry in entries.flatten() {
             if entry.file_name().to_string_lossy().starts_with("mood-music-") {
                 let _ = std::fs::remove_file(entry.path());
@@ -139,16 +140,21 @@ async fn get_audio_url(app: AppHandle, query: String) -> Result<String, String> 
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let output_template = format!("/tmp/mood-music-{}.%(ext)s", ts);
+    // Use /private/tmp (the real path on macOS; /tmp is a symlink) so yt-dlp's
+    // Python runtime and our Rust file check agree on the same path.
+    let output_template = format!("/private/tmp/mood-music-{}.%(ext)s", ts);
 
     let output = app
         .shell()
         .sidecar("yt-dlp")
         .map_err(|e| e.to_string())?
         .args([
-            // Prefer m4a ≤128 kbps for fast download; fall back to webm then any best audio
-            "-f", "bestaudio[ext=m4a][abr<=128]/bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio",
+            // Prefer webm/opus (not DASH, no ffmpeg needed) then fall back to m4a.
+            // --no-part writes directly to the final file, bypassing the .part rename
+            // that fails on macOS when yt-dlp resolves /tmp vs /private/tmp differently.
+            "-f", "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio",
             "--no-playlist",
+            "--no-part",
             "--quiet",
             "-o", &output_template,
             &format!("ytsearch1:{}", query),
@@ -167,8 +173,8 @@ async fn get_audio_url(app: AppHandle, query: String) -> Result<String, String> 
     }
 
     // Find the file yt-dlp wrote (%(ext)s is replaced with the actual extension)
-    let base = format!("/tmp/mood-music-{}", ts);
-    for ext in ["m4a", "webm", "ogg", "opus", "mp4", "mkv"] {
+    let base = format!("/private/tmp/mood-music-{}", ts);
+    for ext in ["webm", "m4a", "ogg", "opus", "mp4", "mkv"] {
         let path = format!("{}.{}", base, ext);
         if std::path::Path::new(&path).exists() {
             return Ok(path);
@@ -176,6 +182,37 @@ async fn get_audio_url(app: AppHandle, query: String) -> Result<String, String> 
     }
 
     Err("Downloaded file not found — please try again.".to_string())
+}
+
+// Fetches an external image URL from Rust (no browser Origin header) and returns
+// it as a data URL so the WebView can render it without CORS restrictions.
+#[tauri::command]
+async fn fetch_image_base64(url: String) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status().as_u16()));
+    }
+
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpeg")
+        .to_string();
+
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    let b64 = general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{};base64,{}", ct, b64))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -186,6 +223,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             get_audio_url,
+            fetch_image_base64,
             start_oauth_server,
             exchange_spotify_code,
             refresh_spotify_token,

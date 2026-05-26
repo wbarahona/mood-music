@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import type { ServiceOption } from "../data/themes";
 import { themeOptions, services } from "../data/themes";
 import { startSpotifyOAuth } from "../utils/spotifyAuth";
+import { serviceIcons } from "../utils/serviceIcons";
 
 function CogPanel({ onClose }: { onClose: () => void }) {
   const { service, clientId, commitCredentials, setSpotifyTokens } = useApp();
@@ -30,7 +31,11 @@ function CogPanel({ onClose }: { onClose: () => void }) {
       setSpotifyTokens(tokens);
       onClose();
     } catch (err) {
-      setConnectError(err instanceof Error ? err.message : "Connection failed. Please try again.");
+      setConnectError(
+        err instanceof Error
+          ? err.message
+          : "Connection failed. Please try again.",
+      );
     } finally {
       setIsConnecting(false);
     }
@@ -40,8 +45,13 @@ function CogPanel({ onClose }: { onClose: () => void }) {
     <div className="cog-panel">
       <div className="cog-panel-header">
         <span className="cog-panel-title">Service settings</span>
-        <button type="button" className="cog-close" onClick={onClose} aria-label="Close">
-          ✕
+        <button
+          type="button"
+          className="cog-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <span className="material-symbols-rounded">close</span>
         </button>
       </div>
 
@@ -50,9 +60,16 @@ function CogPanel({ onClose }: { onClose: () => void }) {
           <button
             key={s.id}
             type="button"
-            className={localService === s.id ? "service-button active" : "service-button"}
-            onClick={() => { setLocalService(s.id); setConnectError(""); }}
+            data-service={s.id}
+            className={
+              localService === s.id ? "service-button active" : "service-button"
+            }
+            onClick={() => {
+              setLocalService(s.id);
+              setConnectError("");
+            }}
           >
+            {serviceIcons[s.id]}
             {s.label}
           </button>
         ))}
@@ -62,7 +79,8 @@ function CogPanel({ onClose }: { onClose: () => void }) {
         <div className="service-inline-note" style={{ marginBottom: "16px" }}>
           <span className="service-inline-note-icon">✓</span>
           <span>
-            YouTube Music streams via <strong>yt-dlp</strong> — no credentials needed.
+            YouTube Music streams via <strong>yt-dlp</strong> — no credentials
+            needed.
           </span>
         </div>
       ) : (
@@ -79,8 +97,14 @@ function CogPanel({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {connectError && <p className="playback-error" style={{ marginTop: "8px" }}>{connectError}</p>}
-      {isConnecting && <p className="oauth-hint">Waiting for Spotify in your browser…</p>}
+      {connectError && (
+        <p className="playback-error" style={{ marginTop: "8px" }}>
+          {connectError}
+        </p>
+      )}
+      {isConnecting && (
+        <p className="oauth-hint">Waiting for Spotify in your browser…</p>
+      )}
 
       <div className="cog-panel-actions">
         <button
@@ -90,7 +114,9 @@ function CogPanel({ onClose }: { onClose: () => void }) {
           disabled={!isValid || isConnecting}
         >
           {localService === "spotify"
-            ? (isConnecting ? "Connecting…" : "Connect with Spotify")
+            ? isConnecting
+              ? "Connecting…"
+              : "Connect with Spotify"
             : "Save changes"}
         </button>
       </div>
@@ -103,7 +129,6 @@ export function MoodEditorScreen() {
     selectedTheme,
     tokens,
     activeTokenId,
-    isModified,
     selectTheme,
     setActiveTokenId,
     updateTokenValue,
@@ -113,7 +138,9 @@ export function MoodEditorScreen() {
   const [showCog, setShowCog] = useState(false);
 
   const currentTheme = themeOptions.find((t) => t.id === selectedTheme)!;
-  const activeToken = activeTokenId ? (tokens.find((t) => t.id === activeTokenId) ?? null) : null;
+  const activeToken = activeTokenId
+    ? (tokens.find((t) => t.id === activeTokenId) ?? null)
+    : null;
 
   function handleTokenClick(tokenId: string) {
     setActiveTokenId(tokenId === activeTokenId ? "" : tokenId);
@@ -127,7 +154,7 @@ export function MoodEditorScreen() {
   return (
     <section className="card">
       <div className="card-header-row">
-        <div className="section-title">Mood editor</div>
+        <div className="section-title">Set your mood</div>
         <button
           type="button"
           className={showCog ? "cog-button active" : "cog-button"}
@@ -135,14 +162,15 @@ export function MoodEditorScreen() {
           title="Service settings"
           aria-label="Service settings"
         >
-          ⚙
+          <span className="material-symbols-rounded">settings</span>
         </button>
       </div>
 
       {showCog && <CogPanel onClose={() => setShowCog(false)} />}
 
       <p className="section-description">
-        Choose a theme, then tap any highlighted word to swap it for an alternative.
+        Choose a theme, then tap any highlighted word to swap it for an
+        alternative.
       </p>
 
       <div className="tiles-grid">
@@ -150,7 +178,9 @@ export function MoodEditorScreen() {
           <button
             key={theme.id}
             type="button"
-            className={theme.id === selectedTheme ? "theme-tile selected" : "theme-tile"}
+            className={
+              theme.id === selectedTheme ? "theme-tile selected" : "theme-tile"
+            }
             style={{ borderLeftColor: theme.accentColor }}
             onClick={() => selectTheme(theme.id)}
           >
@@ -160,13 +190,21 @@ export function MoodEditorScreen() {
         ))}
       </div>
 
-      <div className="theme-stage" style={{ background: currentTheme.gradient }}>
+      <div
+        className="theme-stage"
+        style={{ background: currentTheme.gradient }}
+      >
         <div className="sentence-line">
+          <span className="sentence-prefix">Blend mood to an</span>
           {tokens.map((token) => (
             <button
               key={token.id}
               type="button"
-              className={token.id === activeTokenId ? "stage-token active" : "stage-token"}
+              className={
+                token.id === activeTokenId
+                  ? "stage-token active"
+                  : "stage-token"
+              }
               onClick={() => handleTokenClick(token.id)}
             >
               {token.value}
@@ -174,32 +212,29 @@ export function MoodEditorScreen() {
           ))}
         </div>
 
-        {activeToken ? (
+        {activeToken && (
           <div className="inline-pills">
             {activeToken.options.map((option) => (
               <button
                 key={option}
                 type="button"
-                className={option === activeToken.value ? "stage-pill active" : "stage-pill"}
+                className={
+                  option === activeToken.value
+                    ? "stage-pill active"
+                    : "stage-pill"
+                }
                 onClick={() => handleOptionClick(activeToken.id, option)}
               >
                 {option}
               </button>
             ))}
           </div>
-        ) : (
-          <p className="stage-hint">Tap any word above to explore alternatives</p>
         )}
       </div>
 
       <div className="actions-row">
-        <button
-          type="button"
-          className="primary-button"
-          onClick={goToPlayback}
-          disabled={!isModified}
-        >
-          {isModified ? "Go to playback" : "Change a word to build your mood"}
+        <button type="button" className="primary-button" onClick={goToPlayback}>
+          Enter into the zone
         </button>
       </div>
     </section>

@@ -55,7 +55,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setService(stored.service);
         setClientId(stored.clientId);
         setClientSecret(stored.clientSecret);
-        setScreen("mood");
+        setScreen("playback");
       }
       if (storedTokens) {
         setSpotifyTokensState(storedTokens);

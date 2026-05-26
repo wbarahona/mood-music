@@ -4,18 +4,72 @@ import { useApp } from "../context/AppContext";
 import { refreshSpotifyTokens } from "../utils/spotifyAuth";
 import { openUrl } from "../utils/openUrl";
 import { moodToUrl } from "../utils/moodToUrl";
+import { applyM3ThemeFromImage, applyM3Theme } from "../utils/theme";
 
 type AudioState = "loading" | "ready" | "playing" | "error";
 type SpotifyState = "loading" | "ready" | "playing" | "paused" | "error";
 
 export function PlaybackScreen() {
-  const { service, moodSentence, clientId, spotifyTokens, setSpotifyTokens, goToMood } = useApp();
+  const {
+    service,
+    moodSentence,
+    clientId,
+    spotifyTokens,
+    setSpotifyTokens,
+    goToMood,
+  } = useApp();
 
   const isYoutube = service === "youtube";
 
+  // ── Pollinations background ────────────────────────────────────────────────
+  const bgImgRef = useRef<HTMLImageElement>(null);
+  const [bgSrc, setBgSrc] = useState<string | null>(null);
+  const [bgLoaded, setBgLoaded] = useState(false);
+  const [bgFailed, setBgFailed] = useState(false);
+
+  const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+    moodSentence + " music mood aesthetic cinematic",
+  )}?width=900&height=680&nologo=true`;
+
+  // Fetch via Rust backend — bypasses the 403 that browser Origin header triggers
+  useEffect(() => {
+    setBgLoaded(false);
+    setBgFailed(false);
+    setBgSrc(null);
+    applyM3Theme();
+
+    let cancelled = false;
+    invoke<string>("fetch_image_base64", { url: pollinationsUrl })
+      .then((dataUrl) => {
+        if (cancelled) return;
+        setBgSrc(dataUrl);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBgFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [moodSentence]);
+
+  function handleBgLoad() {
+    setBgLoaded(true);
+    // data URLs are same-origin — canvas.getImageData works without CORS issues
+    if (bgImgRef.current) applyM3ThemeFromImage(bgImgRef.current);
+  }
+
+  function handleBgError() {
+    setBgFailed(true);
+    applyM3Theme();
+  }
+
   // ── YouTube state ──────────────────────────────────────────────────────────
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [audioState, setAudioState] = useState<AudioState>(isYoutube ? "loading" : "ready");
+  const [audioState, setAudioState] = useState<AudioState>(
+    isYoutube ? "loading" : "ready",
+  );
   const [audioError, setAudioError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
 
@@ -26,14 +80,19 @@ export function PlaybackScreen() {
     invoke<string>("get_audio_url", { query: moodSentence })
       .then((filePath) => {
         const audio = audioRef.current;
-        if (audio) { audio.src = convertFileSrc(filePath); audio.load(); }
+        if (audio) {
+          audio.src = convertFileSrc(filePath);
+          audio.load();
+        }
         setAudioState("ready");
       })
       .catch((err) => {
         setAudioError(typeof err === "string" ? err : "Failed to load audio.");
         setAudioState("error");
       });
-    return () => { audioRef.current?.pause(); };
+    return () => {
+      audioRef.current?.pause();
+    };
   }, [moodSentence, isYoutube, retryCount]);
 
   function toggleYoutubePlay() {
@@ -45,7 +104,9 @@ export function PlaybackScreen() {
     } else {
       setAudioState("playing");
       audio.play().catch(() => {
-        setAudioError("Playback failed — the stream may have expired. Go back and try again.");
+        setAudioError(
+          "Playback failed — the stream may have expired. Go back and try again.",
+        );
         setAudioState("error");
       });
     }
@@ -61,19 +122,22 @@ export function PlaybackScreen() {
   const [spotifyError, setSpotifyError] = useState("");
   const [isPremiumError, setIsPremiumError] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState<{ name: string; artist: string } | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<{
+    name: string;
+    artist: string;
+  } | null>(null);
 
-  // Keep tokenRef current whenever tokens update
   useEffect(() => {
     tokenRef.current = spotifyTokens?.accessToken ?? "";
   }, [spotifyTokens]);
 
   useEffect(() => {
     if (isYoutube) return;
-
     if (!spotifyTokens) {
       setSpotifyState("error");
-      setSpotifyError("No Spotify session found. Please reconnect in settings.");
+      setSpotifyError(
+        "No Spotify session found. Please reconnect in settings.",
+      );
       return;
     }
 
@@ -81,8 +145,6 @@ export function PlaybackScreen() {
 
     async function init() {
       let tokens = spotifyTokens!;
-
-      // Proactively refresh if within 5 minutes of expiry
       if (tokens.expiresAt - Date.now() < 5 * 60 * 1000) {
         try {
           tokens = await refreshSpotifyTokens(tokens.refreshToken, clientId);
@@ -90,35 +152,44 @@ export function PlaybackScreen() {
         } catch {
           if (!cancelled) {
             setSpotifyState("error");
-            setSpotifyError("Your Spotify session expired. Please reconnect in settings.");
+            setSpotifyError(
+              "Your Spotify session expired. Please reconnect in settings.",
+            );
           }
           return;
         }
       }
-
       tokenRef.current = tokens.accessToken;
 
       function initPlayer() {
         if (cancelled) return;
-
         const player = new window.Spotify.Player({
           name: "Mood Music",
           getOAuthToken: (cb) => cb(tokenRef.current),
           volume: 0.8,
         });
-
         player.addListener("initialization_error", ({ message }) => {
-          if (!cancelled) { setSpotifyError(`Player error: ${message}`); setSpotifyState("error"); }
+          if (!cancelled) {
+            setSpotifyError(`Player error: ${message}`);
+            setSpotifyState("error");
+          }
         });
         player.addListener("authentication_error", ({ message }) => {
-          if (!cancelled) { setSpotifyError(`Auth error: ${message}. Try reconnecting Spotify.`); setSpotifyState("error"); }
+          if (!cancelled) {
+            setSpotifyError(
+              `Auth error: ${message}. Try reconnecting Spotify.`,
+            );
+            setSpotifyState("error");
+          }
         });
         player.addListener("account_error", ({ message }) => {
           const premium = /premium/i.test(message);
           if (!cancelled) {
-            setSpotifyError(premium
-              ? "Spotify Premium is required for in-app playback."
-              : `Account error: ${message}`);
+            setSpotifyError(
+              premium
+                ? "Spotify Premium is required for in-app playback."
+                : `Account error: ${message}`,
+            );
             setIsPremiumError(premium);
             setSpotifyState("error");
           }
@@ -133,19 +204,18 @@ export function PlaybackScreen() {
         player.addListener("player_state_changed", (state) => {
           if (!state || cancelled) return;
           const track = state.track_window.current_track;
-          setCurrentTrack({ name: track.name, artist: track.artists.map((a) => a.name).join(", ") });
+          setCurrentTrack({
+            name: track.name,
+            artist: track.artists.map((a) => a.name).join(", "),
+          });
           setSpotifyState(state.paused ? "paused" : "playing");
         });
-
         player.connect();
         playerRef.current = player;
       }
 
-      // Set the global callback for when the SDK script fires
       window.onSpotifyWebPlaybackSDKReady = initPlayer;
-
       if (window.Spotify) {
-        // SDK script already loaded from a previous mount
         initPlayer();
       } else if (!document.querySelector('script[src*="spotify-player"]')) {
         const script = document.createElement("script");
@@ -156,7 +226,6 @@ export function PlaybackScreen() {
     }
 
     init();
-
     return () => {
       cancelled = true;
       playerRef.current?.disconnect();
@@ -169,20 +238,16 @@ export function PlaybackScreen() {
     if (!deviceIdRef.current) return;
     setIsSearching(true);
     try {
-      // Search for a playlist matching the mood
       const searchRes = await fetch(
         `https://api.spotify.com/v1/search?q=${encodeURIComponent(moodSentence)}&type=playlist&limit=1`,
-        { headers: { Authorization: `Bearer ${tokenRef.current}` } }
+        { headers: { Authorization: `Bearer ${tokenRef.current}` } },
       );
       if (!searchRes.ok) throw new Error("Spotify search failed");
-
-      const searchData = await searchRes.json() as {
+      const searchData = (await searchRes.json()) as {
         playlists?: { items: { uri: string }[] };
       };
       const contextUri = searchData.playlists?.items?.[0]?.uri;
       if (!contextUri) throw new Error("No playlist found for this mood");
-
-      // Start playback on our SDK device
       const playRes = await fetch(
         `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
         {
@@ -192,10 +257,10 @@ export function PlaybackScreen() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ context_uri: contextUri }),
-        }
+        },
       );
       if (!playRes.ok && playRes.status !== 204) {
-        const err = await playRes.json() as { error?: { message?: string } };
+        const err = (await playRes.json()) as { error?: { message?: string } };
         throw new Error(err.error?.message ?? "Playback failed");
       }
       hasStartedRef.current = true;
@@ -208,106 +273,159 @@ export function PlaybackScreen() {
   }
 
   async function handleSpotifyToggle() {
-    if (!hasStartedRef.current) {
-      await searchAndPlay();
-    } else {
-      await playerRef.current?.togglePlay();
-    }
+    if (!hasStartedRef.current) await searchAndPlay();
+    else await playerRef.current?.togglePlay();
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  const isPlaying = isYoutube
+    ? audioState === "playing"
+    : spotifyState === "playing";
+
+  const eyebrowText = bgFailed
+    ? "Mood"
+    : bgLoaded
+      ? "Mood"
+      : "Generating image…";
+
   return (
-    <section className="card">
-      <div className="playback-mood-display">
-        <span className="mood-label">Mood</span>
-        <p className="mood-text">"{moodSentence}"</p>
-      </div>
+    <section className="playback-screen">
+      {/* Animated gradient shown while AI image loads */}
+      <div className="playback-loading-bg" />
 
-      <div className="playback-center">
-        {isYoutube ? (
-          <>
-            <audio
-              ref={audioRef}
-              onEnded={() => setAudioState("ready")}
-              onError={() => {
-                setAudioError("Playback error — the stream may have expired. Go back and try again.");
-                setAudioState("error");
-              }}
-            />
-            {audioState === "loading" && (
-              <p className="playback-status">Downloading audio for your mood…</p>
-            )}
-            {audioState === "error" && (
-              <div className="playback-error-block">
-                <p className="playback-error">{audioError}</p>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => { setAudioState("loading"); setRetryCount((n) => n + 1); }}
-                >
-                  Try again
-                </button>
-              </div>
-            )}
-            {(audioState === "ready" || audioState === "playing") && (
-              <button
-                type="button"
-                className={`play-pause-button${audioState === "playing" ? " playing" : ""}`}
-                onClick={toggleYoutubePlay}
-                aria-label={audioState === "playing" ? "Pause" : "Play"}
-              >
-                {audioState === "playing" ? "⏸" : "▶"}
-              </button>
-            )}
-          </>
-        ) : (
-          <>
-            {spotifyState === "loading" && (
-              <p className="playback-status">Connecting to Spotify…</p>
-            )}
+      {/* AI-generated backdrop fades in over the gradient */}
+      {bgSrc && (
+        <img
+          ref={bgImgRef}
+          className={`playback-bg${bgLoaded ? " loaded" : ""}`}
+          src={bgSrc}
+          alt=""
+          aria-hidden="true"
+          onLoad={handleBgLoad}
+          onError={handleBgError}
+        />
+      )}
+      <div className="playback-scrim" />
 
-            {spotifyState === "error" && (
-              <div className="playback-error-block">
-                <p className="playback-error">{spotifyError}</p>
-                {isPremiumError && (
+      <div className="playback-content">
+        {/* Mood header */}
+        <div className="playback-mood-header">
+          <p className="mood-eyebrow">{eyebrowText}</p>
+          <p className="mood-headline">{moodSentence}</p>
+        </div>
+
+        {/* Controls */}
+        <div className="playback-center">
+          {isYoutube ? (
+            <>
+              <audio
+                ref={audioRef}
+                onEnded={() => setAudioState("ready")}
+                onError={() => {
+                  setAudioError(
+                    "Playback error — the stream may have expired. Go back and try again.",
+                  );
+                  setAudioState("error");
+                }}
+              />
+              {audioState === "loading" && (
+                <p className="playback-status">
+                  Downloading audio for your mood…
+                </p>
+              )}
+              {audioState === "error" && (
+                <div className="playback-error-block">
+                  <p className="playback-error">{audioError}</p>
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() => openUrl(moodToUrl(moodSentence, "spotify"))}
+                    onClick={() => {
+                      setAudioState("loading");
+                      setRetryCount((n) => n + 1);
+                    }}
                   >
-                    Open in Spotify instead
+                    Try again
                   </button>
-                )}
-              </div>
-            )}
-
-            {(spotifyState === "ready" || spotifyState === "playing" || spotifyState === "paused") && (
-              <>
-                {currentTrack && (
-                  <div className="track-info">
-                    <span className="track-name">{currentTrack.name}</span>
-                    <span className="track-artist">{currentTrack.artist}</span>
-                  </div>
-                )}
+                </div>
+              )}
+              {(audioState === "ready" || audioState === "playing") && (
                 <button
                   type="button"
-                  className={`play-pause-button${spotifyState === "playing" ? " playing" : ""}${isSearching ? " loading" : ""}`}
-                  onClick={handleSpotifyToggle}
-                  disabled={isSearching}
-                  aria-label={spotifyState === "playing" ? "Pause" : "Play"}
+                  className={`play-fab${isPlaying ? " playing" : ""}`}
+                  onClick={toggleYoutubePlay}
+                  aria-label={isPlaying ? "Pause" : "Play"}
                 >
-                  {isSearching ? "…" : spotifyState === "playing" ? "⏸" : "▶"}
+                  <span className="material-symbols-rounded play-fab-icon">
+                    {isPlaying ? "pause" : "play_arrow"}
+                  </span>
                 </button>
-              </>
-            )}
-          </>
-        )}
-      </div>
+              )}
+            </>
+          ) : (
+            <>
+              {spotifyState === "loading" && (
+                <p className="playback-status">Connecting to Spotify…</p>
+              )}
+              {spotifyState === "error" && (
+                <div className="playback-error-block">
+                  <p className="playback-error">{spotifyError}</p>
+                  {isPremiumError && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() =>
+                        openUrl(moodToUrl(moodSentence, "spotify"))
+                      }
+                    >
+                      Open in Spotify instead
+                    </button>
+                  )}
+                </div>
+              )}
+              {(spotifyState === "ready" ||
+                spotifyState === "playing" ||
+                spotifyState === "paused") && (
+                <>
+                  {currentTrack && (
+                    <div className="track-info">
+                      <span className="track-name">{currentTrack.name}</span>
+                      <span className="track-artist">
+                        {currentTrack.artist}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className={`play-fab${spotifyState === "playing" ? " playing" : ""}`}
+                    onClick={handleSpotifyToggle}
+                    disabled={isSearching}
+                    aria-label={spotifyState === "playing" ? "Pause" : "Play"}
+                  >
+                    <span className="material-symbols-rounded play-fab-icon">
+                      {isSearching
+                        ? "more_horiz"
+                        : spotifyState === "playing"
+                          ? "pause"
+                          : "play_arrow"}
+                    </span>
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
 
-      <div className="playback-footer">
-        <button type="button" className="secondary-button" onClick={goToMood}>
-          ✏ Edit mood
-        </button>
+        {/* Footer */}
+        <div className="playback-footer">
+          <button
+            type="button"
+            className="playback-edit-btn"
+            onClick={goToMood}
+          >
+            <span className="material-symbols-rounded">edit</span>
+            Edit mood
+          </button>
+        </div>
       </div>
     </section>
   );

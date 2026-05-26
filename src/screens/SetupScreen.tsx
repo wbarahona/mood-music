@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import type { ServiceOption } from "../data/themes";
 import { services } from "../data/themes";
+import { serviceIcons } from "../utils/serviceIcons";
 import { openUrl } from "../utils/openUrl";
 import { startSpotifyOAuth } from "../utils/spotifyAuth";
 
@@ -86,7 +87,7 @@ function TutorialSteps({ steps, url, linkLabel }: { steps: string[]; url: string
         ))}
       </ol>
       <button type="button" className="link-button" onClick={() => openUrl(url)}>
-        ↗ {linkLabel}
+        <span className="material-symbols-rounded">open_in_new</span> {linkLabel}
       </button>
     </>
   );
@@ -221,9 +222,11 @@ export function SetupScreen() {
                 <button
                   key={option.id}
                   type="button"
+                  data-service={option.id}
                   className={option.id === localService ? "service-button active" : "service-button"}
                   onClick={() => handleServiceChange(option.id)}
                 >
+                  {serviceIcons[option.id]}
                   {option.label}
                 </button>
               ))}
@@ -262,7 +265,7 @@ export function SetupScreen() {
       {/* ── Step 2: Account check ── */}
       {step === 2 && (
         <>
-          <button type="button" className="back-link" onClick={goBack}>← Back</button>
+          <button type="button" className="back-link" onClick={goBack}><span className="material-symbols-rounded">arrow_back</span> Back</button>
           <div className="section-title">Do you have a {serviceName} account?</div>
 
           {hasAccount === null && (
@@ -299,7 +302,7 @@ export function SetupScreen() {
       {/* ── Step 3: Developer credentials + OAuth ── */}
       {step === 3 && (
         <>
-          <button type="button" className="back-link" onClick={goBack}>← Back</button>
+          <button type="button" className="back-link" onClick={goBack}><span className="material-symbols-rounded">arrow_back</span> Back</button>
           <div className="section-title">Do you have {serviceName} developer credentials?</div>
           <p className="section-description">
             To search for music the app needs a Client ID from {serviceName}'s developer portal.
