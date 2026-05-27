@@ -1,5 +1,7 @@
 # Mood Music
 
+![preview](./public/preview.png)
+
 A macOS desktop app that turns your mood into music. You build a sentence that describes how you feel — choosing words from themed word banks — and the app finds music that matches it, generates an AI background image, and adapts its color theme to the artwork.
 
 Built with Tauri v2, React 19, and TypeScript.
@@ -30,11 +32,11 @@ Tracks pre-fetch 20 seconds before the current one ends so playback never gaps. 
 
 ## Requirements
 
-| Dependency | Purpose |
-|---|---|
-| **yt-dlp** | Extracts YouTube stream URLs and searches |
-| **Rust toolchain** | Tauri native build |
-| **Node 18+** | Frontend build |
+| Dependency         | Purpose                                   |
+| ------------------ | ----------------------------------------- |
+| **yt-dlp**         | Extracts YouTube stream URLs and searches |
+| **Rust toolchain** | Tauri native build                        |
+| **Node 18+**       | Frontend build                            |
 
 Install yt-dlp:
 
@@ -103,15 +105,15 @@ src-tauri/src/
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Shell | Tauri v2 |
-| Frontend | React 19, TypeScript, Vite |
-| Styling | Material Design 3 (dark), dynamic color via `@material/material-color-utilities` |
-| Icons | Material Symbols Rounded |
-| Audio (YouTube) | yt-dlp + custom Rust TCP proxy |
-| Audio (Spotify) | Spotify Web Playback SDK |
-| Image | Pollinations.ai |
-| Persistence | `tauri-plugin-store` with localStorage fallback |
-| HTTP (Rust) | reqwest with streaming |
-| Async (Rust) | Tokio |
+| Layer           | Technology                                                                       |
+| --------------- | -------------------------------------------------------------------------------- |
+| Shell           | Tauri v2                                                                         |
+| Frontend        | React 19, TypeScript, Vite                                                       |
+| Styling         | Material Design 3 (dark), dynamic color via `@material/material-color-utilities` |
+| Icons           | Material Symbols Rounded                                                         |
+| Audio (YouTube) | yt-dlp + custom Rust TCP proxy                                                   |
+| Audio (Spotify) | Spotify Web Playback SDK                                                         |
+| Image           | Pollinations.ai                                                                  |
+| Persistence     | `tauri-plugin-store` with localStorage fallback                                  |
+| HTTP (Rust)     | reqwest with streaming                                                           |
+| Async (Rust)    | Tokio                                                                            |
