@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useApp } from "../context/AppContext";
 import type { ServiceOption } from "../data/themes";
 import { services } from "../data/themes";
 import { serviceIcons } from "../utils/serviceIcons";
 import { openUrl } from "../utils/openUrl";
 import { startSpotifyOAuth } from "../utils/spotifyAuth";
+import { ModelStatusPanel } from "../components/ModelStatusPanel";
 
 type Step = 1 | 2 | 3;
 type CredState = "question" | "tutorial" | "form";
@@ -121,12 +122,14 @@ function SpotifyConnectForm({
   onConnect,
   isConnecting,
   connectError,
+  modelReady,
 }: {
   clientId: string;
   onClientIdChange: (v: string) => void;
   onConnect: () => void;
   isConnecting: boolean;
   connectError: string;
+  modelReady: boolean;
 }) {
   const isValid = clientId.trim().length > 0;
   return (
@@ -154,15 +157,18 @@ function SpotifyConnectForm({
           Waiting for Spotify authorization in your browser…
         </p>
       )}
-      <div className="actions-row">
+      <div className="actions-row" style={{ flexDirection: "column", gap: 8 }}>
         <button
           type="button"
           className="primary-button"
           onClick={onConnect}
-          disabled={!isValid || isConnecting}
+          disabled={!isValid || isConnecting || !modelReady}
         >
           {isConnecting ? "Connecting…" : "Connect with Spotify"}
         </button>
+        {!modelReady && (
+          <p className="model-cta-hint">Waiting for AI model…</p>
+        )}
       </div>
     </>
   );
@@ -187,6 +193,14 @@ export function SetupScreen() {
   const [connectError, setConnectError] = useState("");
   const [showYtInstructions, setShowYtInstructions] = useState(false);
 
+  const [modelReady, setModelReady] = useState(false);
+  const [credsSaved, setCredsSaved] = useState(false);
+
+  // Auto-navigate once both model and credentials are ready
+  useEffect(() => {
+    if (modelReady && credsSaved) goToMood();
+  }, [modelReady, credsSaved, goToMood]);
+
   const serviceName = localService === "spotify" ? "Spotify" : "YouTube Music";
   const accountTutorial = accountTutorials[localService];
   const credTutorial = credTutorials[localService];
@@ -206,7 +220,7 @@ export function SetupScreen() {
   function handleStep1Continue() {
     if (localService === "youtube") {
       commitCredentials("youtube", localClientId.trim(), "");
-      goToMood();
+      setCredsSaved(true);
     } else {
       setStep(2);
     }
@@ -220,7 +234,7 @@ export function SetupScreen() {
       const tokens = await startSpotifyOAuth(localClientId.trim());
       commitCredentials("spotify", localClientId.trim(), "");
       setSpotifyTokens(tokens);
-      goToMood();
+      setCredsSaved(true);
     } catch (err) {
       setConnectError(
         err instanceof Error
@@ -243,8 +257,13 @@ export function SetupScreen() {
     }
   }
 
+  const ctaDisabled = !modelReady;
+  const ctaHint = !modelReady ? "Waiting for AI model…" : null;
+
   return (
     <section className="card">
+      <ModelStatusPanel onReady={() => setModelReady(true)} />
+      <div className="divider" style={{ margin: "16px 0" }} />
       <WizardProgress step={step} />
 
       {/* ── Step 1: Pick a service ── */}
@@ -327,16 +346,20 @@ export function SetupScreen() {
             </div>
           )}
 
-          <div className="actions-row">
+          <div className="actions-row" style={{ flexDirection: "column", gap: 8 }}>
             <button
               type="button"
               className="primary-button"
               onClick={handleStep1Continue}
+              disabled={localService === "youtube" ? ctaDisabled : false}
             >
               {localService === "youtube"
                 ? "Get started — no sign-in needed"
                 : `Continue with ${serviceName}`}
             </button>
+            {localService === "youtube" && ctaHint && (
+              <p className="model-cta-hint">{ctaHint}</p>
+            )}
           </div>
         </>
       )}
@@ -454,6 +477,7 @@ export function SetupScreen() {
                 onConnect={handleSpotifyConnect}
                 isConnecting={isConnecting}
                 connectError={connectError}
+                modelReady={modelReady}
               />
             </>
           )}
@@ -465,6 +489,7 @@ export function SetupScreen() {
               onConnect={handleSpotifyConnect}
               isConnecting={isConnecting}
               connectError={connectError}
+              modelReady={modelReady}
             />
           )}
         </>

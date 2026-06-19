@@ -81,11 +81,55 @@ export async function saveSpotifyTokens(tokens: StoredSpotifyTokens): Promise<vo
   } catch {}
 }
 
+// ── Image generation settings ──────────────────────────────────────────────────
+
+export type Scheduler = "dpm" | "pndm";
+
+export type ImageSettings = {
+  steps: number;      // 10 | 15 | 20 | 25
+  cfgScale: number;   // 5–12
+  scheduler: Scheduler;
+};
+
+export const DEFAULT_IMAGE_SETTINGS: ImageSettings = {
+  steps: 15,
+  cfgScale: 7.5,
+  scheduler: "dpm",
+};
+
+export async function loadImageSettings(): Promise<ImageSettings> {
+  const store = await getStore();
+  try {
+    if (store) {
+      const val = await store.get<ImageSettings>("imageSettings");
+      return val ?? DEFAULT_IMAGE_SETTINGS;
+    }
+    const raw = localStorage.getItem("mood-music-image-settings");
+    return raw ? (JSON.parse(raw) as ImageSettings) : DEFAULT_IMAGE_SETTINGS;
+  } catch {
+    return DEFAULT_IMAGE_SETTINGS;
+  }
+}
+
+export async function saveImageSettings(s: ImageSettings): Promise<void> {
+  const store = await getStore();
+  try {
+    if (store) { await store.set("imageSettings", s); return; }
+    localStorage.setItem("mood-music-image-settings", JSON.stringify(s));
+  } catch {}
+}
+
 export async function clearAll(): Promise<void> {
   const store = await getStore();
   try {
-    if (store) { await store.delete("setup"); await store.delete("spotifyTokens"); return; }
+    if (store) {
+      await store.delete("setup");
+      await store.delete("spotifyTokens");
+      await store.delete("imageSettings");
+      return;
+    }
     localStorage.removeItem("mood-music-setup");
     localStorage.removeItem("mood-music-spotify-tokens");
+    localStorage.removeItem("mood-music-image-settings");
   } catch {}
 }

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { invoke } from "@tauri-apps/api/core";
 import type { MoodToken, ServiceOption } from "../data/themes";
 import { themeOptions, themeTokens } from "../data/themes";
-import { loadSetup, saveSetup, loadSpotifyTokens, saveSpotifyTokens, clearAll, type StoredSpotifyTokens } from "../utils/storage";
+import { loadSetup, saveSetup, loadSpotifyTokens, saveSpotifyTokens, loadImageSettings, saveImageSettings, clearAll, type StoredSpotifyTokens, type ImageSettings, DEFAULT_IMAGE_SETTINGS } from "../utils/storage";
 
 export type Screen = "setup" | "mood" | "playback";
 
@@ -23,6 +23,8 @@ type AppState = {
   isStreamLoading: boolean;
   streamError: string;
   retryAudioStream: () => void;
+  imageSettings: ImageSettings;
+  setImageSettings: (s: ImageSettings) => void;
   resetApp: () => void;
   commitCredentials: (service: ServiceOption, clientId: string, clientSecret: string) => void;
   setSpotifyTokens: (tokens: StoredSpotifyTokens | null) => void;
@@ -54,6 +56,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeTokenId, setActiveTokenId] = useState<string>("");
   const [defaultValues, setDefaultValues] = useState<Record<string, string>>(initialDefaults);
 
+  const [imageSettings, setImageSettingsState] = useState<ImageSettings>(DEFAULT_IMAGE_SETTINGS);
+
   // YouTube audio stream pre-warming
   const [audioStreamUrl, setAudioStreamUrl] = useState<string | null>(null);
   const [isStreamLoading, setIsStreamLoading] = useState(false);
@@ -64,16 +68,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Load persisted data from the Tauri store (or localStorage fallback) on mount
   useEffect(() => {
     async function init() {
-      const [stored, storedTokens] = await Promise.all([loadSetup(), loadSpotifyTokens()]);
+      const [stored, storedTokens, modelExists, storedImageSettings] = await Promise.all([
+        loadSetup(),
+        loadSpotifyTokens(),
+        invoke<boolean>("check_model").catch(() => false),
+        loadImageSettings(),
+      ]);
       if (stored) {
         setService(stored.service);
         setClientId(stored.clientId);
         setClientSecret(stored.clientSecret);
-        setScreen("playback");
       }
       if (storedTokens) {
         setSpotifyTokensState(storedTokens);
       }
+      setImageSettingsState(storedImageSettings);
+      if (modelExists && stored) {
+        setScreen("playback");
+      }
+      // otherwise stay on "setup" (default) — SetupScreen handles model download inline
       setIsReady(true);
     }
     init();
@@ -145,6 +158,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStreamRetry((n) => n + 1);
   }
 
+  function setImageSettings(s: ImageSettings) {
+    setImageSettingsState(s);
+    saveImageSettings(s);
+  }
+
   async function resetApp() {
     await clearAll();
     setService("spotify");
@@ -176,6 +194,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isStreamLoading,
         streamError,
         retryAudioStream,
+        imageSettings,
+        setImageSettings,
         resetApp,
         commitCredentials,
         setSpotifyTokens: handleSetSpotifyTokens,

@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Swift CLI build artifacts
+sd-swift/.build/
+
+# Apple ml-stable-diffusion dependency (clone separately)
+# git clone https://github.com/apple/ml-stable-diffusion
+ml-stable-diffusion/

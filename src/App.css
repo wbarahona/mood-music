@@ -550,6 +550,91 @@ input:focus {
 
 .reset-button .material-symbols-rounded { font-size: 16px; }
 
+/* ── Cog panel — image settings section ──────────────────────────────────── */
+
+.cog-section-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 16px 0;
+}
+
+.cog-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.5;
+  margin-bottom: 14px;
+}
+
+.cog-section-title .material-symbols-rounded {
+  font-size: 0.95rem;
+}
+
+.cog-field {
+  margin-bottom: 16px;
+}
+
+.cog-field-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.cog-field-hint {
+  font-size: 0.73rem;
+  font-weight: 400;
+  opacity: 0.45;
+}
+
+.cog-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cog-pill {
+  padding: 5px 13px;
+  border-radius: 99px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.cog-pill:hover {
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+.cog-pill.active {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  border-color: transparent;
+}
+
+.cog-slider {
+  width: 100%;
+  accent-color: var(--md-sys-color-primary);
+  cursor: pointer;
+}
+
+.cog-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  opacity: 0.4;
+  margin-top: 3px;
+}
+
 /* YouTube optional API key box in setup */
 .yt-api-key-box {
   background: var(--md-sys-color-surface-container-high);
@@ -751,6 +836,129 @@ input:focus {
 }
 
 /* ── Wizard ──────────────────────────────────────────────────────────────── */
+/* ── Model status panel (embedded in SetupScreen) ──────────────────────────── */
+
+.model-status-panel {
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px 14px;
+  transition: background 0.3s ease;
+}
+
+.model-status-panel.ready {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 10%, var(--md-sys-color-surface-container-high));
+  border-color: color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent);
+}
+
+.model-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.model-status-icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  color: var(--md-sys-color-primary);
+  opacity: 0.9;
+}
+
+.model-status-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-status-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-status-sub {
+  font-weight: 400;
+  opacity: 0.65;
+}
+
+.model-status-error {
+  color: var(--md-sys-color-error);
+}
+
+.model-status-bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.model-status-fill {
+  height: 100%;
+  background: var(--md-sys-color-primary);
+  border-radius: 99px;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
+.model-status-fill.done {
+  width: 100%;
+}
+
+/* Indeterminate shimmer for compile/extract phases */
+.model-status-fill.indeterminate {
+  width: 40%;
+  animation: status-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes status-shimmer {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(300%); }
+}
+
+.model-status-dl-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 99px;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.model-status-dl-btn:hover { opacity: 0.85; }
+
+.model-status-dl-btn .material-symbols-rounded {
+  font-size: 0.95rem;
+}
+
+.model-status-hint {
+  font-size: 0.74rem;
+  opacity: 0.5;
+  margin: 6px 0 0 0;
+  line-height: 1.4;
+}
+
+.model-cta-hint {
+  font-size: 0.77rem;
+  opacity: 0.55;
+  margin: 0;
+  text-align: center;
+}
+
+/* ── Wizard ──────────────────────────────────────────────────────────────────── */
+
 .wizard-progress {
   display: flex;
   align-items: center;
@@ -957,6 +1165,72 @@ input:focus {
   }
   100% {
     background-position: 0% 40%;
+  }
+}
+
+/* ── Particle field ────────────────────────────────────────────────────────── */
+
+.particle-field {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transition: opacity 1.4s ease;
+  pointer-events: none;
+}
+
+/* Large atmospheric orbs — soft aurora glow */
+.particle-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  opacity: 0.22;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+  animation: blob-drift ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes blob-drift {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  25% {
+    transform: translate(calc(-50% + 28px), calc(-50% - 18px)) scale(1.08);
+  }
+  60% {
+    transform: translate(calc(-50% - 20px), calc(-50% + 14px)) scale(0.94);
+  }
+  100% {
+    transform: translate(calc(-50% + 18px), calc(-50% + 22px)) scale(1.12);
+  }
+}
+
+/* Small rising particles */
+.particle-dot {
+  position: absolute;
+  bottom: -8px;
+  border-radius: 50%;
+  filter: blur(0.6px);
+  opacity: 0;
+  animation: particle-rise linear infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes particle-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) translateX(0) scale(0.3);
+  }
+  8% {
+    opacity: 0.85;
+    transform: translateY(-7vh) translateX(calc(var(--drift) * 0.08)) scale(1);
+  }
+  80% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-108vh) translateX(var(--drift)) scale(0.5);
   }
 }
 
@@ -1183,6 +1457,94 @@ input:focus {
   background: rgba(255, 255, 255, 0.22);
   color: white;
   border-color: rgba(255, 255, 255, 0.38);
+}
+
+/* ── Model Setup Screen ──────────────────────────────────────────────────── */
+.model-setup-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.model-setup-card {
+  background: var(--md-sys-color-surface-container);
+  border-radius: 28px;
+  padding: 40px 36px;
+  width: min(480px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 1px 3px 1px rgba(0, 0, 0, 0.15);
+}
+
+.model-setup-icon {
+  font-size: 2.8em;
+  color: var(--md-sys-color-primary);
+  margin-bottom: 4px;
+}
+
+.model-setup-info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.model-setup-info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 20px;
+  padding: 6px 12px;
+}
+
+.model-setup-progress-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-setup-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--md-sys-color-surface-container-highest);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.model-setup-progress-fill {
+  height: 100%;
+  background: var(--md-sys-color-primary);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.model-setup-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.model-setup-error {
+  font-size: 13px;
+  color: var(--md-sys-color-error);
+  text-align: center;
+  margin: 0;
+  background: var(--md-sys-color-error-container);
+  padding: 10px 16px;
+  border-radius: 12px;
+  width: 100%;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */

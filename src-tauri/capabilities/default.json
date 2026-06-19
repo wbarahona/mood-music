@@ -10,7 +10,10 @@
     "shell:default",
     {
       "identifier": "shell:allow-execute",
-      "allow": [{ "name": "yt-dlp", "sidecar": true }]
+      "allow": [
+        { "name": "yt-dlp", "sidecar": true },
+        { "name": "sd-swift", "sidecar": true }
+      ]
     }
   ]
 }

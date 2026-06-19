@@ -6,6 +6,7 @@ import { refreshSpotifyTokens } from "../utils/spotifyAuth";
 import { openUrl } from "../utils/openUrl";
 import { moodToUrl } from "../utils/moodToUrl";
 import { applyM3ThemeFromImage, applyM3Theme } from "../utils/theme";
+import { ParticleField } from "../components/ParticleField";
 
 type SpotifyState = "loading" | "ready" | "playing" | "paused" | "error";
 
@@ -20,19 +21,16 @@ export function PlaybackScreen() {
     audioStreamUrl,
     streamError,
     retryAudioStream,
+    imageSettings,
   } = useApp();
 
   const isYoutube = service === "youtube";
 
-  // ── Pollinations background ────────────────────────────────────────────────
+  // ── Local AI background ────────────────────────────────────────────────────
   const bgImgRef = useRef<HTMLImageElement>(null);
   const [bgSrc, setBgSrc] = useState<string | null>(null);
   const [bgLoaded, setBgLoaded] = useState(false);
   const [bgFailed, setBgFailed] = useState(false);
-
-  const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-    moodSentence + " music mood aesthetic cinematic",
-  )}?width=900&height=680&nologo=true`;
 
   useEffect(() => {
     setBgLoaded(false);
@@ -41,7 +39,12 @@ export function PlaybackScreen() {
     applyM3Theme();
 
     let cancelled = false;
-    invoke<string>("fetch_image_base64", { url: pollinationsUrl })
+    invoke<string>("generate_image_local", {
+      prompt: moodSentence,
+      steps: imageSettings.steps,
+      cfgScale: imageSettings.cfgScale,
+      scheduler: imageSettings.scheduler,
+    })
       .then((dataUrl) => {
         if (cancelled) return;
         setBgSrc(dataUrl);
@@ -445,7 +448,12 @@ export function PlaybackScreen() {
 
   return (
     <section className="playback-screen">
-      <div className="playback-loading-bg" />
+      <div
+        className="playback-loading-bg"
+        style={{ opacity: bgLoaded ? 0 : 1, transition: "opacity 1.4s ease" }}
+      />
+
+      <ParticleField visible={!bgLoaded} />
 
       {bgSrc && (
         <img

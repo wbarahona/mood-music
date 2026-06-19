@@ -26,6 +26,9 @@ reqwest = { version = "0.12", features = ["json", "stream"] }
 base64 = "0.22"
 tauri-plugin-store = "2"
 tauri-plugin-shell = "2"
-tokio = { version = "1", features = ["net", "io-util"] }
+tokio = { version = "1", features = ["net", "io-util", "fs"] }
 futures-util = "0.3"
+log = "0.4"
+tauri-plugin-log = "2"
+zip = "0.6"
 
