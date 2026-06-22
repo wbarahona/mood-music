@@ -165,6 +165,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function resetApp() {
     await clearAll();
+    await invoke("delete_model").catch(() => {});
     setService("spotify");
     setClientId("");
     setClientSecret("");

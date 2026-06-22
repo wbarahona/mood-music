@@ -16,6 +16,7 @@ function CogPanel({ onClose }: { onClose: () => void }) {
   const [localClientId, setLocalClientId] = useState(clientId);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectError, setConnectError] = useState('');
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const isValid = localService === 'youtube' || localClientId.trim().length > 0;
 
@@ -49,14 +50,6 @@ function CogPanel({ onClose }: { onClose: () => void }) {
     <div className="cog-panel">
       <div className="cog-panel-header">
         <span className="cog-panel-title">Service settings</span>
-        <button
-          type="button"
-          className="cog-close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <span className="material-symbols-rounded">close</span>
-        </button>
       </div>
 
       <div className="service-options" style={{ marginBottom: '16px' }}>
@@ -126,15 +119,46 @@ function CogPanel({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           className="reset-button"
-          onClick={() => {
-            resetApp();
-            onClose();
-          }}
+          onClick={() => setShowResetConfirm(true)}
         >
           <span className="material-symbols-rounded">restart_alt</span>
-          Start over
+          Reset App
         </button>
       </div>
+
+      {showResetConfirm && (
+        <div className="reset-confirm-overlay">
+          <div className="reset-confirm-dialog">
+            <span className="material-symbols-rounded reset-confirm-icon">warning</span>
+            <div className="reset-confirm-title">Reset App?</div>
+            <p className="reset-confirm-body">This will permanently:</p>
+            <ul className="reset-confirm-list">
+              <li>Delete the downloaded AI model (~1.5 GB)</li>
+              <li>Clear all stored API keys and tokens</li>
+              <li>Sign out of Spotify and YouTube</li>
+              <li>Return to the initial setup screen</li>
+            </ul>
+            <p className="reset-confirm-hint">The model will need to be downloaded again on next launch.</p>
+            <div className="reset-confirm-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowResetConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="reset-button destructive"
+                onClick={() => { resetApp(); onClose(); }}
+              >
+                <span className="material-symbols-rounded">restart_alt</span>
+                Reset App
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="cog-section-divider" />
 
@@ -240,10 +264,10 @@ export function MoodEditorScreen() {
           type="button"
           className={showCog ? 'cog-button active' : 'cog-button'}
           onClick={() => setShowCog((v) => !v)}
-          title="Service settings"
-          aria-label="Service settings"
+          title={showCog ? 'Close settings' : 'Service settings'}
+          aria-label={showCog ? 'Close settings' : 'Service settings'}
         >
-          <span className="material-symbols-rounded">settings</span>
+          <span className="material-symbols-rounded">{showCog ? 'close' : 'settings'}</span>
         </button>
       </div>
 

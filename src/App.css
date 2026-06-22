@@ -453,8 +453,7 @@ input:focus {
   flex-shrink: 0;
   transition:
     background 0.2s ease,
-    color 0.2s ease,
-    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    color 0.2s ease;
 }
 
 .cog-button .material-symbols-rounded {
@@ -464,13 +463,11 @@ input:focus {
 .cog-button:hover {
   background: var(--md-sys-color-surface-container-highest);
   color: var(--md-sys-color-on-surface);
-  transform: rotate(30deg);
 }
 
 .cog-button.active {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
-  transform: rotate(60deg);
 }
 
 /* ── Cog panel ───────────────────────────────────────────────────────────── */
@@ -506,21 +503,6 @@ input:focus {
   color: var(--md-sys-color-on-surface);
 }
 
-.cog-close {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  color: var(--md-sys-color-on-surface-variant);
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease;
-}
-
-.cog-close:hover {
-  background: var(--md-sys-color-surface-container-highest);
-}
 
 .cog-panel-actions {
   margin-top: 12px;
@@ -549,6 +531,96 @@ input:focus {
 }
 
 .reset-button .material-symbols-rounded { font-size: 16px; }
+
+/* ── Reset confirmation overlay ──────────────────────────────────────────── */
+
+.reset-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 24px;
+}
+
+.reset-confirm-dialog {
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  max-width: 360px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reset-confirm-icon {
+  font-size: 32px;
+  color: var(--md-sys-color-error);
+}
+
+.reset-confirm-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface);
+}
+
+.reset-confirm-body {
+  font-size: 13px;
+  color: var(--md-sys-color-on-surface-variant);
+  margin: 0;
+}
+
+.reset-confirm-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reset-confirm-list li {
+  font-size: 13px;
+  color: var(--md-sys-color-on-surface);
+}
+
+.reset-confirm-hint {
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  margin: 4px 0 8px;
+}
+
+.reset-confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.reset-confirm-actions .secondary-button {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface);
+  transition: background 0.15s ease;
+}
+
+.reset-confirm-actions .secondary-button:hover {
+  background: var(--md-sys-color-surface-variant);
+}
+
+.reset-confirm-actions .reset-button {
+  flex: 1;
+}
+
+.reset-button.destructive {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+}
 
 /* ── Cog panel — image settings section ──────────────────────────────────── */
 

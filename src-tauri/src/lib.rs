@@ -649,6 +649,18 @@ async fn proxy_request(mut socket: tokio::net::TcpStream, cdn_url: String) {
     log::debug!("[proxy] connection closed — {} bytes sent", bytes_sent);
 }
 
+#[tauri::command]
+async fn delete_model(app: AppHandle) -> Result<(), String> {
+    let model_dir = get_model_dir(&app);
+    if model_dir.exists() {
+        std::fs::remove_dir_all(&model_dir).map_err(|e| e.to_string())?;
+        log::info!("[delete_model] removed {}", model_dir.display());
+    } else {
+        log::info!("[delete_model] nothing to remove at {}", model_dir.display());
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -675,6 +687,7 @@ pub fn run() {
             is_model_downloaded,
             compile_models,
             download_model,
+            delete_model,
             generate_image_local,
             start_oauth_server,
             exchange_spotify_code,
