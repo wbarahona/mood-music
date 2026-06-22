@@ -106,7 +106,7 @@ do {
     }
 
     let config = MLModelConfiguration()
-    config.computeUnits = .all  // ANE + GPU + CPU
+    config.computeUnits = .cpuAndGPU  // Metal GPU — portable across all Apple Silicon (M1/M2/M3/M4)
 
     let pipeline = try StableDiffusionPipeline(
         resourcesAt: modelURL,

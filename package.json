@@ -12,7 +12,9 @@
     "app:build": "tauri build",
     "app:build:debug": "tauri build --debug",
     "app:icon": "tauri icon public/mood-music.png",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "app:reset": "bash scripts/reset.sh",
+    "sidecar:build": "bash scripts/build-sd-swift.sh"
   },
   "dependencies": {
     "@material/material-color-utilities": "^0.4.0",

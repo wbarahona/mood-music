@@ -20,7 +20,7 @@ Tracks pre-fetch 20 seconds before the current one ends so playback never gaps. 
 
 ## Features
 
-- **Local AI image generation** — DreamShaper 8 runs entirely on-device via Core ML and Apple Neural Engine. No cloud, no API key, no data sent anywhere. One-time ~1.5 GB model download on first launch.
+- **Local AI image generation** — DreamShaper 8 runs entirely on-device via Core ML (Metal GPU). No cloud, no API key, no data sent anywhere. One-time ~1.5 GB model download on first launch.
 - **Animated particle placeholder** — while the image generates, color-matched particles and aurora blobs fill the background using the active M3 theme palette.
 - **Instant audio** — four bundled ambient tracks play from the first tap; no waiting for the network.
 - **YouTube music search** — yt-dlp extracts a signed CDN stream URL; a Rust TCP proxy serves it to the audio element with full Range header support for seeking.
@@ -37,11 +37,11 @@ Tracks pre-fetch 20 seconds before the current one ends so playback never gaps. 
 
 ### System (one-time install)
 
-| Dependency | Version | Purpose |
-|---|---|---|
-| **Node.js** | 18+ | Frontend build (Vite + React) |
-| **Rust** | stable | Tauri v2 backend compilation |
-| **Xcode Command Line Tools** | latest | macOS toolchain (Rust + Swift compilation) |
+| Dependency                   | Version | Purpose                                    |
+| ---------------------------- | ------- | ------------------------------------------ |
+| **Node.js**                  | 18+     | Frontend build (Vite + React)              |
+| **Rust**                     | stable  | Tauri v2 backend compilation               |
+| **Xcode Command Line Tools** | latest  | macOS toolchain (Rust + Swift compilation) |
 
 ```bash
 # Xcode Command Line Tools
@@ -51,11 +51,11 @@ xcode-select --install
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-> **Note:** `yt-dlp` and `sd-swift` binaries are pre-compiled and committed to the repo — you do **not** need to install or build them separately.
+> **Note:** `yt-dlp` is pre-compiled and committed. `sd-swift` is also committed, but the binary is compiled for a specific Apple Silicon generation — **if you clone on a different chip than the one that built the binary, you must rebuild it** (see [Rebuilding the Swift sidecar](#rebuilding-the-swift-sidecar) below).
 
 ### macOS
 
-- **macOS 14 (Sonoma) or later** — required for Core ML ANE image generation
+- **macOS 14 (Sonoma) or later** — required for Core ML image generation
 - **Apple Silicon (M1/M2/M3/M4)** — the pre-built binaries are `aarch64-apple-darwin` only
 
 ---
@@ -70,14 +70,22 @@ cd mood-music
 # 2. Install JS dependencies
 npm install
 
-# 3. Run in development
+# 3. Build the Swift sidecar for your chip (required on first clone)
+#    Skippable only if your chip matches whoever last committed the binary.
+npm run sidecar:build
+
+# 4. Run in development
 npm run app:dev
 
-# 4. Build a release DMG
+# 5. Build a release DMG
 npm run app:build
+
+# 6. Reset the app (delete model + cache + settings)
+npm run app:reset
 ```
 
 On first launch the app will walk you through:
+
 1. Choosing a music service (YouTube works with no credentials)
 2. Downloading the DreamShaper 8 Core ML model (~1.5 GB, one-time)
 3. Compiling the model for Apple Silicon (~5–10 min, one-time, no Xcode required)
@@ -86,22 +94,22 @@ After that, image generation is fully offline.
 
 ---
 
-## Rebuilding the Swift sidecar (optional)
+## Rebuilding the Swift sidecar
 
-The `sd-swift` binary is pre-built and committed. You only need to rebuild it if you modify `sd-swift/Sources/sd-swift/main.swift`.
+`sd-swift` is a Swift CLI that drives Core ML image generation. The pre-built binary in `src-tauri/binaries/` is compiled for one specific Apple Silicon generation. **You must rebuild it locally if:**
+
+- You cloned the repo on a different chip than whoever last committed the binary (e.g. binary was built on M3, you're on M1 or M2).
+- You modified `sd-swift/Sources/sd-swift/main.swift`.
 
 ```bash
-# Clone the Apple ML Stable Diffusion Swift package (required as local dependency)
+# One-time: clone the Apple ML Stable Diffusion Swift package (gitignored, not in the repo)
 git clone https://github.com/apple/ml-stable-diffusion
-# Place it at the repo root: mood-music/ml-stable-diffusion/
 
-# Build sd-swift
-cd sd-swift
-swift build -c release
-
-# Copy to Tauri binaries
-cp .build/release/sd-swift ../src-tauri/binaries/sd-swift-aarch64-apple-darwin
+# Build and install the sidecar binary for your chip
+npm run sidecar:build
 ```
+
+`npm run sidecar:build` will clone `ml-stable-diffusion` automatically if it is not present, compile the Swift package in release mode, and copy the resulting binary to `src-tauri/binaries/sd-swift-aarch64-apple-darwin`.
 
 Requires macOS 14+ and Swift 5.9+ (included with Xcode Command Line Tools on macOS 14).
 
@@ -127,10 +135,10 @@ If Premium is unavailable, the app offers a direct link to open the mood playlis
 
 Accessible via the ⚙️ settings panel on the mood editor:
 
-| Setting | Options | Default | Effect |
-|---|---|---|---|
-| **Steps** | 10 / 15 / 20 / 25 | 15 | More steps = higher quality, slower |
-| **CFG scale** | 5.0 – 12.0 | 7.5 | Higher = more prompt-adherent |
+| Setting       | Options             | Default      | Effect                              |
+| ------------- | ------------------- | ------------ | ----------------------------------- |
+| **Steps**     | 10 / 15 / 20 / 25   | 15           | More steps = higher quality, slower |
+| **CFG scale** | 5.0 – 12.0          | 7.5          | Higher = more prompt-adherent       |
 | **Scheduler** | DPM-Solver++ / PNDM | DPM-Solver++ | DPM is faster at equivalent quality |
 
 Settings are persisted to `~/Library/Application Support/com.wbarahona.mood-music/mood-music.json`.
@@ -149,7 +157,7 @@ Covers: YouTube search & yt-dlp output, CDN proxy, Spotify token exchange and re
 
 ## Project structure
 
-```
+```:txt
 src/
   screens/
     SetupScreen.tsx         Combined onboarding: model download + service wizard
@@ -187,16 +195,16 @@ src-tauri/binaries/
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Shell | Tauri v2 |
-| Frontend | React 19, TypeScript, Vite |
-| Styling | Material Design 3 dark, dynamic color via `@material/material-color-utilities` |
-| Icons | Material Symbols Rounded |
-| Image generation | DreamShaper 8 via Core ML + Apple Neural Engine (`sd-swift` sidecar) |
-| Audio (YouTube) | yt-dlp + Rust TCP proxy with Range support |
-| Audio (Spotify) | Spotify Web Playback SDK + PKCE OAuth |
-| Persistence | `tauri-plugin-store` with localStorage fallback |
-| Logging | `tauri-plugin-log` → `~/Library/Logs/` |
-| HTTP (Rust) | reqwest with streaming |
-| Async (Rust) | Tokio |
+| Layer            | Technology                                                                     |
+| ---------------- | ------------------------------------------------------------------------------ |
+| Shell            | Tauri v2                                                                       |
+| Frontend         | React 19, TypeScript, Vite                                                     |
+| Styling          | Material Design 3 dark, dynamic color via `@material/material-color-utilities` |
+| Icons            | Material Symbols Rounded                                                       |
+| Image generation | DreamShaper 8 via Core ML + Apple Neural Engine (`sd-swift` sidecar)           |
+| Audio (YouTube)  | yt-dlp + Rust TCP proxy with Range support                                     |
+| Audio (Spotify)  | Spotify Web Playback SDK + PKCE OAuth                                          |
+| Persistence      | `tauri-plugin-store` with localStorage fallback                                |
+| Logging          | `tauri-plugin-log` → `~/Library/Logs/`                                         |
+| HTTP (Rust)      | reqwest with streaming                                                         |
+| Async (Rust)     | Tokio                                                                          |

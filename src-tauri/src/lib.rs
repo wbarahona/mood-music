@@ -284,6 +284,20 @@ async fn download_model(app: AppHandle) -> Result<(), String> {
     .unwrap_or_else(|e| Err(e.to_string()))?;
 
     log::info!("[download_model] extraction complete");
+
+    // Remove any pre-compiled .mlmodelc bundles that came from the zip.
+    // They are compiled for the machine that built the release and will fail
+    // on any other Apple Silicon generation (M1 vs M2 vs M3 ANE are incompatible).
+    // Deleting them here forces sd-swift to recompile locally on first run.
+    let model_dir = models_root.join(MODEL_DIR_NAME);
+    for name in ["TextEncoder", "UnetChunk1", "UnetChunk2", "VAEDecoder"] {
+        let compiled = model_dir.join(format!("{}.mlmodelc", name));
+        if compiled.exists() {
+            log::info!("[download_model] removing cross-compiled {}.mlmodelc", name);
+            let _ = std::fs::remove_dir_all(&compiled);
+        }
+    }
+
     Ok(())
 }
 

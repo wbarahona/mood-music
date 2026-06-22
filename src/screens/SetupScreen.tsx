@@ -249,6 +249,7 @@ export function SetupScreen() {
   function goBack() {
     if (step === 3) {
       setStep(2);
+      setHasAccount(null);
       setCredState("question");
       setConnectError("");
     } else if (step === 2) {
@@ -264,7 +265,6 @@ export function SetupScreen() {
     <section className="card">
       <ModelStatusPanel onReady={() => setModelReady(true)} />
       <div className="divider" style={{ margin: "16px 0" }} />
-      <WizardProgress step={step} />
 
       {/* ── Step 1: Pick a service ── */}
       {step === 1 && (
@@ -295,6 +295,8 @@ export function SetupScreen() {
               ))}
             </div>
           </div>
+
+          {localService === "spotify" && <WizardProgress step={step} />}
 
           {localService === "youtube" && (
             <>
@@ -370,6 +372,7 @@ export function SetupScreen() {
           <button type="button" className="back-link" onClick={goBack}>
             <span className="material-symbols-rounded">arrow_back</span> Back
           </button>
+          <WizardProgress step={step} />
           <div className="section-title">
             Do you have a {serviceName} account?
           </div>
@@ -427,6 +430,7 @@ export function SetupScreen() {
           <button type="button" className="back-link" onClick={goBack}>
             <span className="material-symbols-rounded">arrow_back</span> Back
           </button>
+          <WizardProgress step={step} />
           <div className="section-title">
             Do you have {serviceName} developer credentials?
           </div>
